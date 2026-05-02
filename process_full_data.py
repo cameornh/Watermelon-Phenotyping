@@ -6,6 +6,8 @@ from ultralytics import YOLO
 from scipy.optimize import curve_fit
 from scipy.ndimage import median_filter
 
+from cv_helpers import blend_mask_overlays, stem_tip_tangent_deg
+
 # --- 1. CONFIGURATION ---
 INPUT_DIR = "full_data"
 MASK_DIR = "full_data_segmented_yolo"
@@ -191,14 +193,26 @@ def main():
             # 3. Independent Midline (Clipped to the PREDICTED perimeter)
             midline = get_ray_scan_midline(flesh_m, g_cnt, fit_pts, cx, cy)
 
-            # 4. Draw and Save
+            # 4. Masks + fit overlays, stem tip heuristic, save
+            vis = blend_mask_overlays(img, rind_m, flesh_m)
             if len(midline) > 1:
-                cv2.polylines(img, [midline.astype(np.int32)], False, (0, 255, 255), 3)
-            
-            cv2.polylines(img, [fit_pts.astype(np.int32)], True, (0, 255, 0), 3)
+                cv2.polylines(vis, [midline.astype(np.int32)], False, (0, 255, 255), 3)
+            cv2.polylines(vis, [fit_pts.astype(np.int32)], True, (0, 255, 0), 3)
 
-            cv2.imwrite(os.path.join(OUTPUT_DIR, f"fitted_{img_id}.jpg"), img)
-            print(f"Processed {img_id}: R² = {r_sq:.4f}")
+            stem = stem_tip_tangent_deg(g_cnt, (cx, cy))
+            stem_note = ""
+            if stem is not None:
+                tx, ty, tdeg = stem
+                stem_note = f" | stem tangent ≈ {tdeg:.1f}°"
+                rad = np.deg2rad(tdeg)
+                L = min(w, h) * 0.08
+                p1 = (int(round(tx)), int(round(ty)))
+                p2 = (int(round(tx + L * np.cos(rad))), int(round(ty + L * np.sin(rad))))
+                cv2.circle(vis, p1, 6, (255, 0, 255), -1)
+                cv2.line(vis, p1, p2, (255, 0, 255), 2)
+
+            cv2.imwrite(os.path.join(OUTPUT_DIR, f"fitted_{img_id}.jpg"), vis)
+            print(f"Processed {img_id}: R² = {r_sq:.4f}{stem_note}")
 
         except Exception as e:
             print(f"   Error {img_id}: {e}")

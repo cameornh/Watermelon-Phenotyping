@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watermelon Phenotyping Web App</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Watermelon Phenotyping</h1>
+    <p class="subtitle">Upload one image or many images and view fitted results.</p>
+
+    <section class="card">
+      <h2>Single Image</h2>
+      <form id="single-form">
+        <input type="file" id="single-file" name="file" accept=".jpg,.jpeg,.png" required>
+        <button type="submit">Process Single Image</button>
+      </form>
+      <div id="single-status" class="status"></div>
+      <div id="single-result" class="result-grid"></div>
+    </section>
+
+    <section class="card">
+      <h2>Bulk Images</h2>
+      <form id="bulk-form">
+        <input type="file" id="bulk-files" name="files" accept=".jpg,.jpeg,.png" multiple required>
+        <button type="submit">Process Bulk Images</button>
+      </form>
+      <div id="bulk-status" class="status"></div>
+      <div id="bulk-results" class="result-grid"></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
