@@ -2,6 +2,8 @@ import os
 import cv2
 import numpy as np
 import base64
+import gc
+import torch
 from dataclasses import dataclass
 from typing import Optional
 from scipy.ndimage import median_filter
@@ -11,13 +13,16 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+# OOM PREVENTION 1: Force PyTorch to use minimal memory overhead
+torch.set_num_threads(1)
+
 # Import your helpers (assuming cv_helpers.py is in the same folder)
 from cv_helpers import blend_mask_overlays, stem_tip_tangent_deg
 
 # --- CONFIGURATION ---
 MODEL_PATH = "best.pt"
-# Change this scale factor later to convert pixels to cm (e.g., 0.026)
 PIXELS_TO_CM = 1.0  
+MAX_IMAGE_SIZE = 1024  # OOM PREVENTION 2: Max pixels on the longest side
 
 @dataclass
 class ProcessResult:
@@ -109,8 +114,8 @@ class WatermelonProcessor:
 
             def parabola(y_n, a, b, c): return a * (y_n**2) + b * y_n + c
             try:
-                popt_mid, _ = curve_fit(parabola, y_norm, x_data, bounds=([-w*0.08, -np.inf, -np.inf], [w*0.08, np.inf, np.inf]))
-            except: popt_mid = [0.0, 0.0, cx]
+                popt_mid, _ = curve_fit(parabola, y_norm, x_data, bounds=([-w*0.08, -np.inf, -np.inf],[w*0.08, np.inf, np.inf]))
+            except: popt_mid =[0.0, 0.0, cx]
 
             ys_extrap = np.linspace(0, h, 500)
             xs_extrap = parabola((ys_extrap - y_mean) / y_span, *popt_mid)
@@ -123,7 +128,7 @@ class WatermelonProcessor:
         pred_cnt_cv = predicted_cnt.reshape(-1, 1, 2).astype(np.int32)
         return np.array([pt for pt in pts_orig if cv2.pointPolygonTest(pred_cnt_cv, (float(pt[0]), float(pt[1])), False) >= 0])
 
-    def process_image(self, image: np.ndarray, source_name: str) -> ProcessResult:
+    def process_image(self, image: np.ndarray, source_name: str, scale_ratio: float) -> ProcessResult:
         if image is None: return ProcessResult(success=False, message="Could not decode image.")
         h, w = image.shape[:2]
         
@@ -158,36 +163,35 @@ class WatermelonProcessor:
         r_fit = self.watermelon_model(t_fit, *popt) * scale
         fit_pts = np.array([[r * np.cos(t) + cx, cy - r * np.sin(t)] for t, r in zip(t_fit, r_fit)])
         
-        # --- FEATURE EXTRACTION ---
+        # --- FEATURE EXTRACTION (WITH TRUE-SIZE CORRECTION) ---
         width_px = float(np.max(fit_pts[:, 0]) - np.min(fit_pts[:, 0]))
         height_px = float(np.max(fit_pts[:, 1]) - np.min(fit_pts[:, 1]))
-        
-        # Perimeter = sum of distances between consecutive points + closing the loop
         diffs = np.diff(fit_pts, axis=0)
         perimeter_px = float(np.sum(np.linalg.norm(diffs, axis=1)) + np.linalg.norm(fit_pts[-1] - fit_pts[0]))
 
-        # Apply Scale Factor
-        width_val = width_px * PIXELS_TO_CM
-        height_val = height_px * PIXELS_TO_CM
-        perimeter_val = perimeter_px * PIXELS_TO_CM
+        # We divide by scale_ratio to perfectly undo the downscaling for measurements!
+        orig_scale = 1.0 / scale_ratio
+        width_val = width_px * PIXELS_TO_CM * orig_scale
+        height_val = height_px * PIXELS_TO_CM * orig_scale
+        perimeter_val = perimeter_px * PIXELS_TO_CM * orig_scale
 
         # --- DRAWING ---
         midline = self.get_ray_scan_midline(flesh_mask, rind_cnt, fit_pts, cx, cy)
         output = blend_mask_overlays(image, rind_mask, flesh_mask)
         if len(midline) > 1: cv2.polylines(output,[midline.astype(np.int32)], False, (0, 255, 255), 3)
-        cv2.polylines(output, [fit_pts.astype(np.int32)], True, (0, 255, 0), 3)
+        cv2.polylines(output,[fit_pts.astype(np.int32)], True, (0, 255, 0), 3)
 
         stem = stem_tip_tangent_deg(rind_cnt, (cx, cy))
         if stem is not None:
             tx, ty, tdeg = stem
             L = min(w, h) * 0.08
+            rad = np.deg2rad(tdeg)
             p1 = (int(round(tx)), int(round(ty)))
-            p2 = (int(round(tx + L * np.cos(np.deg2rad(tdeg))), int(round(ty + L * np.sin(np.deg2rad(tdeg))))))
+            p2 = (int(round(tx + L * np.cos(rad))), int(round(ty + L * np.sin(rad))))
             cv2.circle(output, p1, 6, (255, 0, 255), -1)
             cv2.line(output, p1, p2, (255, 0, 255), 2)
 
-        # Convert image to Base64 so frontend can display it directly
-        _, buffer = cv2.imencode('.jpg', output)
+        _, buffer = cv2.imencode('.jpg', output, [cv2.IMWRITE_JPEG_QUALITY, 85])
         img_base64 = base64.b64encode(buffer).decode('utf-8')
 
         return ProcessResult(
@@ -200,7 +204,6 @@ class WatermelonProcessor:
 # --- FASTAPI APP ---
 app = FastAPI()
 
-# Allow GitHub pages frontend to talk to this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -214,15 +217,24 @@ processor = WatermelonProcessor(MODEL_PATH)
 @app.get("/")
 def read_root():
     return {"status": "Watermelon API is awake and running!"}
-    
+
 @app.post("/process_single")
 async def process_single(file: UploadFile = File(...)):
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
-    res = processor.process_image(img, file.filename)
-    return res.__dict__
+    # OOM PREVENTION 3: Resize image if it's massive
+    h, w = img.shape[:2]
+    scale_ratio = 1.0
+    if max(h, w) > MAX_IMAGE_SIZE:
+        scale_ratio = MAX_IMAGE_SIZE / float(max(h, w))
+        img = cv2.resize(img, (int(w * scale_ratio), int(h * scale_ratio)), interpolation=cv2.INTER_AREA)
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    res = processor.process_image(img, file.filename, scale_ratio)
+    
+    # OOM PREVENTION 4: Force garbage collection immediately after processing
+    del img, nparr, contents
+    gc.collect()
+
+    return res.__dict__
