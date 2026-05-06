@@ -23,13 +23,13 @@ document.getElementById('single-form').addEventListener('submit', async (e) => {
             
             let de_text = data.delta_e_final ? 
                 `<p><strong>ΔE Improved:</strong> ${data.delta_e_initial.toFixed(2)} → ${data.delta_e_final.toFixed(2)}</p>` : 
-                `<p><strong>Color Check:</strong> Not found (Values in Pixels)</p>`;
+                `<p><strong>Color Check:</strong> Not found (Dimensions are in Pixels!)</p>`;
 
             resultDiv.innerHTML = `
                 <p><strong>R²:</strong> ${data.r2_score.toFixed(4)}</p>
-                <p><strong>Width:</strong> ${data.width_val.toFixed(1)} mm</p>
-                <p><strong>Height:</strong> ${data.height_val.toFixed(1)} mm</p>
-                <p><strong>Perimeter:</strong> ${data.perimeter_val.toFixed(1)} mm</p>
+                <p><strong>Width:</strong> ${data.width_val.toFixed(2)} cm</p>
+                <p><strong>Height:</strong> ${data.height_val.toFixed(2)} cm</p>
+                <p><strong>Perimeter:</strong> ${data.perimeter_val.toFixed(2)} cm</p>
                 ${de_text}
                 <img src="data:image/jpeg;base64,${data.image_base64}" style="max-width: 100%; border-radius: 8px;">
             `;
@@ -56,12 +56,11 @@ document.getElementById('bulk-form').addEventListener('submit', async (e) => {
     
     let completed = 0;
     
-    // Store data to build histograms at the end
     let batchData = {
         'R² Score': [],
-        'Width (mm)': [],
-        'Height (mm)':[],
-        'Perimeter (mm)': [],
+        'Width (cm)': [],
+        'Height (cm)':[],
+        'Perimeter (cm)': [],
         'Initial ΔE': [],
         'Final ΔE':[]
     };
@@ -77,11 +76,10 @@ document.getElementById('bulk-form').addEventListener('submit', async (e) => {
             
             const tr = document.createElement('tr');
             if (data.success) {
-                // Collect for histograms
                 if(data.r2_score) batchData['R² Score'].push(data.r2_score);
-                if(data.width_val) batchData['Width (mm)'].push(data.width_val);
-                if(data.height_val) batchData['Height (mm)'].push(data.height_val);
-                if(data.perimeter_val) batchData['Perimeter (mm)'].push(data.perimeter_val);
+                if(data.width_val) batchData['Width (cm)'].push(data.width_val);
+                if(data.height_val) batchData['Height (cm)'].push(data.height_val);
+                if(data.perimeter_val) batchData['Perimeter (cm)'].push(data.perimeter_val);
                 if(data.delta_e_initial) batchData['Initial ΔE'].push(data.delta_e_initial);
                 if(data.delta_e_final) batchData['Final ΔE'].push(data.delta_e_final);
 
@@ -111,18 +109,15 @@ document.getElementById('bulk-form').addEventListener('submit', async (e) => {
     }
     status.innerText = `Batch complete! Processed ${completed} images.`;
     
-    // Draw Histograms!
     drawHistograms(batchData, chartsContainer);
 });
 
 function drawHistograms(batchData, container) {
     for (const[title, values] of Object.entries(batchData)) {
-        if (values.length === 0) continue; // Skip if feature wasn't collected
+        if (values.length === 0) continue; 
 
         const min = Math.min(...values);
         const max = Math.max(...values);
-        
-        // Dynamic binning
         const numBins = Math.max(5, Math.min(15, Math.ceil(values.length / 3)));
         const binWidth = (max - min) / numBins || 1;
         
@@ -130,7 +125,7 @@ function drawHistograms(batchData, container) {
         const labels =[];
         
         for (let i = 0; i < numBins; i++) {
-            labels.push(`${(min + i * binWidth).toFixed(2)} - ${(min + (i + 1) * binWidth).toFixed(2)}`);
+            labels.push(`${(min + i * binWidth).toFixed(1)} - ${(min + (i + 1) * binWidth).toFixed(1)}`);
         }
         
         values.forEach(val => {
@@ -139,32 +134,19 @@ function drawHistograms(batchData, container) {
             counts[idx]++;
         });
 
-        // Create canvas element
         const wrapper = document.createElement('div');
         wrapper.className = 'chart-box';
         const canvas = document.createElement('canvas');
         wrapper.appendChild(canvas);
         container.appendChild(wrapper);
 
-        // Render Chart
         new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: labels,
-                datasets:[{
-                    label: title,
-                    data: counts,
-                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
+                datasets:[{ label: title, data: counts, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false }, title: { display: true, text: title } },
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'Frequency' } } }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: title } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Frequency' } } } }
         });
     }
 }
