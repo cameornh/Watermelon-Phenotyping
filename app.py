@@ -1,9 +1,11 @@
 import os
 import uuid
+import csv
+import io
 
 import cv2
 import numpy as np
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import Flask, Response, jsonify, render_template, request, send_from_directory
 from werkzeug.utils import secure_filename
 
 from web_pipeline import WatermelonProcessor
@@ -16,7 +18,31 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 app = Flask(__name__)
-processor = WatermelonProcessor(model_path=MODEL_PATH, output_dir=OUTPUT_DIR)
+
+_DEFAULT_REFERENCE = os.path.join(BASE_DIR, "IMG_7000_standard.JPG")
+REFERENCE_IMAGE_PATH = os.environ.get("REFERENCE_CHECKER_IMAGE", _DEFAULT_REFERENCE)
+if not os.path.isfile(REFERENCE_IMAGE_PATH):
+    raise SystemExit(
+        f"Reference checker image required but not found: {REFERENCE_IMAGE_PATH}. "
+        f"Set REFERENCE_CHECKER_IMAGE or add {_DEFAULT_REFERENCE}."
+    )
+try:
+    processor = WatermelonProcessor(
+        model_path=MODEL_PATH,
+        output_dir=OUTPUT_DIR,
+        reference_image_path=REFERENCE_IMAGE_PATH,
+    )
+except ValueError as exc:
+    raise SystemExit(str(exc)) from exc
+
+processed_feature_rows = []
+
+
+def _features_for_json(features):
+    """Drop _debug (holds ndarrays); Flask jsonify cannot serialize numpy arrays."""
+    if not features:
+        return None
+    return {k: v for k, v in features.items() if k != "_debug"}
 
 
 def is_allowed_file(filename: str) -> bool:
@@ -40,6 +66,19 @@ def get_result_file(filename: str):
     return send_from_directory(OUTPUT_DIR, filename)
 
 
+def _append_row(filename: str, result):
+    public = _features_for_json(result.features)
+    if not public:
+        return
+    row = {"filename": filename, "r2": result.r2_score}
+    row.update(public)
+    if result.calibration:
+        ruler = result.calibration.get("ruler_px_per_mm")
+        if ruler is not None:
+            row["ruler_px_per_mm"] = ruler
+    processed_feature_rows.append(row)
+
+
 @app.post("/api/process-single")
 def process_single():
     if "file" not in request.files:
@@ -57,6 +96,7 @@ def process_single():
     result = processor.process_image(image, unique_name)
     if not result.success:
         return jsonify({"success": False, "filename": safe_name, "message": result.message}), 200
+    _append_row(safe_name, result)
 
     return jsonify(
         {
@@ -65,6 +105,8 @@ def process_single():
             "message": result.message,
             "r2": result.r2_score,
             "result_url": f"/results/{result.output_filename}",
+            "features": _features_for_json(result.features),
+            "calibration": result.calibration,
         }
     )
 
@@ -111,10 +153,39 @@ def process_bulk():
                 "message": result.message,
                 "r2": result.r2_score,
                 "result_url": f"/results/{result.output_filename}",
+                "features": _features_for_json(result.features),
+                "calibration": result.calibration,
             }
         )
+        _append_row(original_name, result)
 
     return jsonify({"results": output})
+
+
+@app.get("/api/export-csv")
+def export_csv():
+    if not processed_feature_rows:
+        return jsonify({"error": "No processed results available for CSV export yet."}), 400
+
+    headers = []
+    for row in processed_feature_rows:
+        for key in row.keys():
+            if key not in headers:
+                headers.append(key)
+
+    stream = io.StringIO()
+    writer = csv.DictWriter(stream, fieldnames=headers, extrasaction="ignore")
+    writer.writeheader()
+    for row in processed_feature_rows:
+        writer.writerow(row)
+
+    csv_data = stream.getvalue()
+    stream.close()
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=watermelon_features.csv"},
+    )
 
 
 if __name__ == "__main__":

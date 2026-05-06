@@ -3,32 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Watermelon Phenotyping Web App</title>
+  <title>Watermelon Phenotyping</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <main class="container">
     <h1>Watermelon Phenotyping</h1>
-    <p class="subtitle">Upload one image or many images and view fitted results.</p>
+    <p class="subtitle">Upload one or more images (JPG, PNG). ColorChecker must be visible in each frame.</p>
 
-    <section class="card">
-      <h2>Single Image</h2>
-      <form id="single-form">
-        <input type="file" id="single-file" name="file" accept=".jpg,.jpeg,.png" required>
-        <button type="submit">Process Single Image</button>
+    <section class="card upload-card">
+      <form id="upload-form" class="upload-form">
+        <label class="file-input-wrap">
+          <input type="file" id="file-input" name="files" accept=".jpg,.jpeg,.png" multiple>
+          <span class="file-input-label">Choose files</span>
+        </label>
+        <button type="submit" class="btn-primary">Process</button>
       </form>
-      <div id="single-status" class="status"></div>
-      <div id="single-result" class="result-grid"></div>
+      <p id="status" class="status" role="status"></p>
     </section>
 
-    <section class="card">
-      <h2>Bulk Images</h2>
-      <form id="bulk-form">
-        <input type="file" id="bulk-files" name="files" accept=".jpg,.jpeg,.png" multiple required>
-        <button type="submit">Process Bulk Images</button>
-      </form>
-      <div id="bulk-status" class="status"></div>
-      <div id="bulk-results" class="result-grid"></div>
+    <section id="results-section" class="card results-section hidden" aria-live="polite">
+      <div id="slideshow-bar" class="slideshow-bar hidden">
+        <button type="button" id="btn-prev" class="btn-icon" aria-label="Previous">‹</button>
+        <div class="slideshow-meta">
+          <span class="viewing-text">Currently viewing</span>
+          <select id="result-select" class="result-select" aria-label="Jump to image"></select>
+        </div>
+        <button type="button" id="btn-next" class="btn-icon" aria-label="Next">›</button>
+      </div>
+
+      <div id="result-view" class="result-view"></div>
+
+      <div id="export-footer" class="export-footer hidden">
+        <button type="button" id="export-csv" class="btn-secondary">Export feature CSV</button>
+        <span id="export-status" class="export-status"></span>
+      </div>
     </section>
   </main>
 

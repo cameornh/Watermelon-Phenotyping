@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import cv2
 import numpy as np
@@ -8,7 +8,16 @@ from scipy.ndimage import median_filter
 from scipy.optimize import curve_fit
 from ultralytics import YOLO
 
+import contour_utils
+import feature_extractor
+from color_calibration import (
+    apply_pipeline,
+    detect_checker_corners,
+    sample_24_patches,
+    warp_checker,
+)
 from cv_helpers import blend_mask_overlays, stem_tip_tangent_deg
+from scale_calibration import calibrate
 
 
 @dataclass
@@ -17,13 +26,31 @@ class ProcessResult:
     message: str
     r2_score: Optional[float] = None
     output_filename: Optional[str] = None
+    features: Optional[Dict[str, Any]] = None
+    calibration: Optional[Dict[str, Any]] = None
 
 
 class WatermelonProcessor:
-    def __init__(self, model_path: str, output_dir: str) -> None:
+    def __init__(self, model_path: str, output_dir: str, reference_image_path: str) -> None:
         self.model = YOLO(model_path)
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
+        if not reference_image_path or not os.path.isfile(reference_image_path):
+            raise ValueError(
+                f"Reference checker image is required but not found: {reference_image_path!r}"
+            )
+        self.reference_image_path = os.path.abspath(reference_image_path)
+        ref_img = cv2.imread(self.reference_image_path)
+        if ref_img is None:
+            raise ValueError(f"Could not read reference checker image: {self.reference_image_path}")
+        try:
+            ref_corners = detect_checker_corners(ref_img)
+            ref_warp = warp_checker(ref_img, ref_corners)
+            self.ref24 = sample_24_patches(ref_warp)
+        except Exception as exc:
+            raise ValueError(
+                f"Failed to build reference ColorChecker patches from {self.reference_image_path}: {exc}"
+            ) from exc
 
     @staticmethod
     def watermelon_model(theta, Rx, Ry, c_a, d_top, w_top, d_bot, w_bot, phi, c_skew, c_bend):
@@ -147,8 +174,44 @@ class WatermelonProcessor:
         if image is None:
             return ProcessResult(success=False, message="Could not decode image.")
 
-        h, w = image.shape[:2]
-        results = self.model(image, conf=0.25, verbose=False)
+        try:
+            checker_corners = detect_checker_corners(image)
+        except Exception as exc:
+            return ProcessResult(
+                success=False,
+                message=f"ColorChecker not found in image (required for calibration): {exc}",
+            )
+
+        try:
+            checker_warp = warp_checker(image, checker_corners)
+            tgt24 = sample_24_patches(checker_warp)
+            image_for_inference = apply_pipeline(image, self.ref24, tgt24)
+        except Exception as exc:
+            return ProcessResult(success=False, message=f"Color calibration failed: {exc}")
+
+        calibration_info: Dict[str, Any] = {
+            "mm_per_px": None,
+            "px_per_mm": None,
+            "ruler_px_per_mm": None,
+            "color_calibrated": True,
+            "reference_image": self.reference_image_path,
+        }
+        try:
+            cal = calibrate(checker_corners, warped_checker=checker_warp)
+            calibration_info.update(cal)
+        except Exception as exc:
+            return ProcessResult(success=False, message=f"Scale calibration failed: {exc}")
+
+        mm_per_px = calibration_info.get("mm_per_px")
+        if mm_per_px is None or float(mm_per_px) <= 0:
+            return ProcessResult(
+                success=False,
+                message="Scale calibration returned invalid mm_per_px.",
+            )
+        mm_per_px = float(mm_per_px)
+
+        h, w = image_for_inference.shape[:2]
+        results = self.model(image_for_inference, conf=0.25, verbose=False)
         rind_mask, flesh_mask = np.zeros((h, w), dtype=np.uint8), np.zeros((h, w), dtype=np.uint8)
 
         if results[0].masks is None:
@@ -194,7 +257,36 @@ class WatermelonProcessor:
         fit_pts = np.array([[r * np.cos(t) + cx, cy - r * np.sin(t)] for t, r in zip(t_fit, r_fit)])
         midline = self.get_ray_scan_midline(flesh_mask, rind_cnt, fit_pts, cx, cy)
 
-        output = blend_mask_overlays(image, rind_mask, flesh_mask)
+        total_mask = cv2.bitwise_or(rind_mask, flesh_mask)
+        try:
+            contour = contour_utils.largest_contour(total_mask)
+        except Exception as exc:
+            return ProcessResult(success=False, message=f"No contour found for feature extraction: {exc}")
+        if len(contour) < 5:
+            return ProcessResult(success=False, message="Contour too small for feature extraction.")
+
+        ellipse = cv2.fitEllipse(contour)
+        min_rect = cv2.minAreaRect(contour)
+        proximal_tip = contour.reshape(-1, 2)[np.argmin(contour.reshape(-1, 2)[:, 1])].astype(np.float64)
+        contour_info = {
+            "contour": contour,
+            "min_rect": min_rect,
+            "ellipse": ellipse,
+            "proximal_tip": proximal_tip,
+        }
+        photo_id = os.path.splitext(os.path.basename(source_name))[0]
+        features = feature_extractor.extract_features(
+            photo_id=photo_id,
+            masks={"flesh": flesh_mask, "rind": rind_mask},
+            total_mask=total_mask,
+            contour_info=contour_info,
+            mm_per_px=mm_per_px,
+        )
+        px_per_mm = float(calibration_info.get("px_per_mm") or (1.0 / mm_per_px))
+        features["px_to_mm"] = round(float(mm_per_px), 6)
+        features["mm_to_px"] = round(px_per_mm, 6)
+
+        output = blend_mask_overlays(image_for_inference, rind_mask, flesh_mask)
         if len(midline) > 1:
             cv2.polylines(output, [midline.astype(np.int32)], False, (0, 255, 255), 3)
         cv2.polylines(output, [fit_pts.astype(np.int32)], True, (0, 255, 0), 3)
@@ -219,4 +311,6 @@ class WatermelonProcessor:
             message="Processed successfully.",
             r2_score=float(r2),
             output_filename=output_filename,
+            features=features,
+            calibration=calibration_info,
         )
