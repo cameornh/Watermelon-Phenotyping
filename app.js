@@ -1,6 +1,6 @@
 
 // For local testing, change to http://localhost:8000
-const API_URL = "https://watermelon-phenotyping.onrender.com"; 
+const API_URL = "https://watermelon-phenotyping.onrender.com/process_single"; 
 
 document.getElementById('single-form').addEventListener('submit', async (e) => {
     e.preventDefault();
