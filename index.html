@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watermelon Phenotyping</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Simple styling for the summary table */
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #f4f4f4; }
+    img.thumb { max-width: 150px; border-radius: 5px; cursor: pointer; }
+    .status { margin-top: 10px; font-weight: bold; color: #333; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Watermelon Phenotyping</h1>
+    
+    <section class="card">
+      <h2>Single Image Analysis</h2>
+      <form id="single-form">
+        <input type="file" id="single-file" accept=".jpg,.jpeg,.png" required>
+        <button type="submit">Process</button>
+      </form>
+      <div id="single-status" class="status"></div>
+      <div id="single-result"></div>
+    </section>
+
+    <section class="card">
+      <h2>Bulk Image Analysis</h2>
+      <form id="bulk-form">
+        <input type="file" id="bulk-files" multiple accept=".jpg,.jpeg,.png" required>
+        <button type="submit">Process Batch</button>
+      </form>
+      <div id="bulk-status" class="status"></div>
+      
+      <table id="bulk-table" style="display: none;">
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>R² Score</th>
+            <th>Width</th>
+            <th>Height</th>
+            <th>Perimeter</th>
+            <th>Preview</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
