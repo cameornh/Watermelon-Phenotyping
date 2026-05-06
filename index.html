@@ -7,7 +7,6 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
   
-  <!-- Add Chart.js for Histograms -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <style>
@@ -23,10 +22,9 @@
 <body>
   <main class="container">
     <h1>Watermelon Phenotyping</h1>
-    <p class="subtitle">Upload images</p>
 
     <section class="card">
-      <h2>Single Image</h2>
+      <h2>Single Image Analysis</h2>
       <form id="single-form">
         <input type="file" id="single-file" accept=".jpg,.jpeg,.png" required>
         <button type="submit">Process Single</button>
@@ -36,7 +34,7 @@
     </section>
 
     <section class="card">
-      <h2>Bulk Images</h2>
+      <h2>Bulk Image Analysis</h2>
       <form id="bulk-form">
         <input type="file" id="bulk-files" multiple accept=".jpg,.jpeg,.png" required>
         <button type="submit">Process Batch</button>
@@ -48,20 +46,18 @@
           <tr>
             <th>Filename</th>
             <th>R²</th>
-            <th>Width (mm)</th>
-            <th>Height (mm)</th>
-            <th>Perim (mm)</th>
-            <th>ΔE (Init)</th>
-            <th>ΔE (Final)</th>
+            <th>Width (cm)</th>
+            <th>Height (cm)</th>
+            <th>Perim (cm)</th>
+            <th>Init ΔE</th>
+            <th>Final ΔE</th>
             <th>Preview</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
       
-      <!-- Container for dynamic histograms -->
       <div id="histograms-container" class="charts-container"></div>
-      
     </section>
   </main>
 
