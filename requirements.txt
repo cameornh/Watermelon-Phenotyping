@@ -1,0 +1,17 @@
+# Web Server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Math and ML
+numpy
+scipy
+ultralytics
+
+# CRITICAL: Use headless OpenCV for Render Linux servers to prevent libGL crashes
+opencv-python-headless
+
+# CRITICAL: Force CPU-only PyTorch to prevent Render Free-Tier Out-of-Memory crashes
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
