@@ -211,6 +211,10 @@ app.add_middleware(
 
 processor = WatermelonProcessor(MODEL_PATH)
 
+@app.get("/")
+def read_root():
+    return {"status": "Watermelon API is awake and running!"}
+    
 @app.post("/process_single")
 async def process_single(file: UploadFile = File(...)):
     contents = await file.read()
