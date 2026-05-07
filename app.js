@@ -112,28 +112,41 @@ document.getElementById('bulk-form').addEventListener('submit', async (e) => {
     drawHistograms(batchData, chartsContainer);
 });
 
+
+// --- IMPROVED HISTOGRAM LOGIC ---
 function drawHistograms(batchData, container) {
-    for (const[title, rawValues] of Object.entries(batchData)) {
-        // PREVENT CRASHES: Strip out any null, undefined, or NaN values before math!
+    for (const [title, rawValues] of Object.entries(batchData)) {
+        // Strip out bad values safely
         const values = rawValues.filter(v => typeof v === 'number' && !isNaN(v));
         if (values.length === 0) continue; 
 
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        
-        let numBins = Math.max(5, Math.min(15, Math.ceil(values.length / 3)));
-        if (max === min) numBins = 1; // Failsafe if all values are identical
-        
-        let binWidth = (max - min) / numBins;
-        if (binWidth === 0) binWidth = 1;
-        
+        // Sort to establish true bounds
+        values.sort((a,b) => a-b);
+        let min = values[0];
+        let max = values[values.length - 1];
+
+        // Failsafe: if every image had the exact same measurement, expand the bounds so the chart doesn't break
+        if (max === min) {
+            min = min * 0.9;
+            max = max * 1.1;
+        }
+
+        // Add a 2% visual pad to the edges so the bars don't touch the graph walls
+        const padding = (max - min) * 0.02;
+        min -= padding;
+        max += padding;
+
+        // Dynamic bin count: Minimum 8 bins, Maximum 20
+        const numBins = Math.max(8, Math.min(20, Math.ceil(Math.sqrt(values.length))));
+        const binWidth = (max - min) / numBins;
+
         const counts = new Array(numBins).fill(0);
         const labels =[];
-        
+
         for (let i = 0; i < numBins; i++) {
-            labels.push(`${(min + i * binWidth).toFixed(1)} - ${(min + (i + 1) * binWidth).toFixed(1)}`);
+            labels.push(`${(min + i * binWidth).toFixed(1)}`);
         }
-        
+
         values.forEach(val => {
             let idx = Math.floor((val - min) / binWidth);
             if (idx >= numBins) idx = numBins - 1; 
@@ -151,13 +164,22 @@ function drawHistograms(batchData, container) {
             type: 'bar',
             data: {
                 labels: labels,
-                datasets:[{ label: title, data: counts, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
+                datasets:[{ 
+                    label: title, 
+                    data: counts, 
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)', 
+                    borderColor: 'rgba(54, 162, 235, 1)', 
+                    borderWidth: 1 
+                }]
             },
             options: { 
                 responsive: true, 
                 maintainAspectRatio: false, 
-                plugins: { legend: { display: false }, title: { display: true, text: title } }, 
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'Frequency' }, ticks: { stepSize: 1 } } } 
+                plugins: { legend: { display: false }, title: { display: true, text: title, font: {size: 16} } }, 
+                scales: { 
+                    x: { ticks: { maxRotation: 45, minRotation: 0 } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Frequency' }, ticks: { stepSize: 1 } } 
+                } 
             }
         });
     }
