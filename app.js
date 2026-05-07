@@ -132,13 +132,13 @@ function drawHistograms(batchData, container) {
         let pad = (deMax - deMin) * 0.02;
         deMin -= pad; deMax += pad;
         
-        deNumBins = Math.max(8, Math.min(20, Math.ceil(Math.sqrt(batchData['Initial ΔE'].length))));
+        deNumBins = Math.max(8, Math.min(20, Math.ceil(Math.sqrt(batchData['Initial ΔE'].length || 1))));
         deBinWidth = (deMax - deMin) / deNumBins || 1;
         
         // Find the absolute highest bar across BOTH charts to lock the Y-axis
         let maxCount = 0;
         deKeys.forEach(k => {
-            let vals = batchData[k].filter(v => typeof v === 'number' && !isNaN(v));
+            let vals = batchData[k] ? batchData[k].filter(v => typeof v === 'number' && !isNaN(v)) :[];
             let counts = new Array(deNumBins).fill(0);
             vals.forEach(val => {
                 let idx = Math.floor((val - deMin) / deBinWidth);
@@ -148,7 +148,7 @@ function drawHistograms(batchData, container) {
             });
             if(Math.max(...counts) > maxCount) maxCount = Math.max(...counts);
         });
-        deMaxY = maxCount + Math.ceil(maxCount * 0.1); // Add 10% headroom
+        deMaxY = maxCount + Math.ceil(maxCount * 0.1); 
     }
 
     // 2. Draw all histograms
@@ -168,6 +168,7 @@ function drawHistograms(batchData, container) {
             min = values[0];
             max = values[values.length - 1];
             if (max === min) { min *= 0.9; max *= 1.1; }
+            if (max === min && min === 0) { max = 1; } // Failsafe for true 0
             let padding = (max - min) * 0.02;
             min -= padding; max += padding;
             numBins = Math.max(8, Math.min(20, Math.ceil(Math.sqrt(values.length))));
@@ -177,8 +178,15 @@ function drawHistograms(batchData, container) {
 
         const counts = new Array(numBins).fill(0);
         const labels =[];
+        
+        // --- THE FIX: DYNAMIC DECIMAL PRECISION ---
+        let precision = 1;
+        if (binWidth < 0.001) precision = 4;
+        else if (binWidth < 0.01) precision = 3;
+        else if (binWidth < 0.1) precision = 2;
+        
         for (let i = 0; i < numBins; i++) {
-            labels.push(`${(min + i * binWidth).toFixed(1)} - ${(min + (i + 1) * binWidth).toFixed(1)}`);
+            labels.push(`${(min + i * binWidth).toFixed(precision)} - ${(min + (i + 1) * binWidth).toFixed(precision)}`);
         }
 
         values.forEach(val => {
