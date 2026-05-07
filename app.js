@@ -1,5 +1,7 @@
 // For local testing, change to http://localhost:8000/process_single
 const API_URL = "https://crabbly-watermelonphenotyping.hf.space/process_single";
+const SINGLE_REQUEST_TIMEOUT_MS = 120000;
+const BULK_REQUEST_TIMEOUT_MS = 45000;
 
 function processUrl(includeImage) {
     return `${API_URL}?include_image=${includeImage ? "true" : "false"}`;
@@ -28,6 +30,12 @@ function measurementUnit(data) {
     return data.delta_e_final !== null && data.delta_e_final !== undefined ? "cm" : "px";
 }
 
+function areaUnit(data) {
+    if (data.area_unit === "cm2") return "cm²";
+    if (data.area_unit === "px2") return "px²";
+    return measurementUnit(data) === "cm" ? "cm²" : "px²";
+}
+
 function rowNotes(data) {
     const notes = [];
     if (Array.isArray(data.warnings)) notes.push(...data.warnings);
@@ -37,12 +45,31 @@ function rowNotes(data) {
     return notes.join(" | ");
 }
 
-async function postImage(file, includeImage) {
+async function postImage(file, includeImage, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const response = await fetch(processUrl(includeImage), { method: "POST", body: formData });
-    const text = await response.text();
+    const controller = new AbortController();
+    const timerId = window.setTimeout(() => controller.abort(), timeoutMs);
+    let response;
+    let text;
+
+    try {
+        response = await fetch(processUrl(includeImage), {
+            method: "POST",
+            body: formData,
+            signal: controller.signal
+        });
+        text = await response.text();
+    } catch (err) {
+        if (err.name === "AbortError") {
+            throw new Error(`Timed out after ${Math.round(timeoutMs / 1000)}s`);
+        }
+        throw err;
+    } finally {
+        window.clearTimeout(timerId);
+    }
+
     let data;
 
     try {
@@ -57,6 +84,21 @@ async function postImage(file, includeImage) {
     }
 
     return data;
+}
+
+async function postBulkImage(file, includeImage) {
+    try {
+        return await postImage(file, includeImage, BULK_REQUEST_TIMEOUT_MS);
+    } catch (firstErr) {
+        try {
+            const retryData = await postImage(file, false, BULK_REQUEST_TIMEOUT_MS);
+            const retryNote = `First request failed (${firstErr.message}); retry succeeded without preview.`;
+            retryData.warnings = Array.isArray(retryData.warnings) ? [...retryData.warnings, retryNote] : [retryNote];
+            return retryData;
+        } catch (secondErr) {
+            throw new Error(`${firstErr.message}; retry failed: ${secondErr.message}`);
+        }
+    }
 }
 
 function previewCell(data) {
@@ -76,10 +118,11 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
     resultDiv.innerHTML = "";
 
     try {
-        const data = await postImage(file, true);
+        const data = await postImage(file, true, SINGLE_REQUEST_TIMEOUT_MS);
 
         if (data.success) {
             const unit = measurementUnit(data);
+            const aUnit = areaUnit(data);
             const digits = unit === "cm" ? 2 : 0;
             const notes = rowNotes(data);
             status.innerText = "Success!";
@@ -96,6 +139,14 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                 <p><strong>Width:</strong> ${fmt(data.width_val, digits)} ${escapeHtml(unit)}</p>
                 <p><strong>Height:</strong> ${fmt(data.height_val, digits)} ${escapeHtml(unit)}</p>
                 <p><strong>Perimeter:</strong> ${fmt(data.perimeter_val, digits)} ${escapeHtml(unit)}</p>
+                <p><strong>Total Area:</strong> ${fmt(data.total_area, digits)} ${escapeHtml(aUnit)}</p>
+                <p><strong>Flesh Area:</strong> ${fmt(data.flesh_area, digits)} ${escapeHtml(aUnit)}</p>
+                <p><strong>Flesh / Total:</strong> ${fmt(data.flesh_area_ratio, 3)}</p>
+                <p><strong>Elongation:</strong> ${fmt(data.elongation_factor, 3)}</p>
+                <p><strong>Asymmetry:</strong> ${fmt(data.asymmetry_score, 3)}</p>
+                <p><strong>Flesh Asymmetry:</strong> ${fmt(data.flesh_asymmetry_score, 3)}</p>
+                <p><strong>Midline Curvature:</strong> ${fmt(data.midline_curvature, 4)}</p>
+                <p><strong>Circularity:</strong> ${fmt(data.circularity, 3)}</p>
                 ${scaleText}
                 ${notes ? `<p><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
                 ${isNumber(data.processing_ms) ? `<p><strong>Time:</strong> ${data.processing_ms} ms</p>` : ""}
@@ -134,6 +185,14 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         "Width (cm)": [],
         "Height (cm)": [],
         "Perimeter (cm)": [],
+        "Total Area (cm²)": [],
+        "Flesh Area (cm²)": [],
+        "Flesh / Total Ratio": [],
+        "Elongation Factor": [],
+        "Circularity": [],
+        "Asymmetry": [],
+        "Flesh Asymmetry": [],
+        "Midline Curvature": [],
         "Initial ΔE": [],
         "Final ΔE": []
     };
@@ -142,12 +201,13 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         status.innerText = `Processing image ${i + 1} of ${files.length}...`;
 
         try {
-            const data = await postImage(files[i], includeImages);
+            const data = await postBulkImage(files[i], includeImages);
             const tr = document.createElement("tr");
 
             if (data.success) {
                 successCount++;
                 const unit = measurementUnit(data);
+                const aUnit = areaUnit(data);
                 const digits = unit === "cm" ? 1 : 0;
                 const notes = rowNotes(data);
 
@@ -156,9 +216,17 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     if (isNumber(data.width_val)) batchData["Width (cm)"].push(data.width_val);
                     if (isNumber(data.height_val)) batchData["Height (cm)"].push(data.height_val);
                     if (isNumber(data.perimeter_val)) batchData["Perimeter (cm)"].push(data.perimeter_val);
+                    if (isNumber(data.total_area)) batchData["Total Area (cm²)"].push(data.total_area);
+                    if (isNumber(data.flesh_area)) batchData["Flesh Area (cm²)"].push(data.flesh_area);
                 } else {
                     pixelScaleCount++;
                 }
+                if (isNumber(data.flesh_area_ratio)) batchData["Flesh / Total Ratio"].push(data.flesh_area_ratio);
+                if (isNumber(data.elongation_factor)) batchData["Elongation Factor"].push(data.elongation_factor);
+                if (isNumber(data.circularity)) batchData["Circularity"].push(data.circularity);
+                if (isNumber(data.asymmetry_score)) batchData["Asymmetry"].push(data.asymmetry_score);
+                if (isNumber(data.flesh_asymmetry_score)) batchData["Flesh Asymmetry"].push(data.flesh_asymmetry_score);
+                if (isNumber(data.midline_curvature)) batchData["Midline Curvature"].push(data.midline_curvature);
                 if (isNumber(data.delta_e_initial)) batchData["Initial ΔE"].push(data.delta_e_initial);
                 if (isNumber(data.delta_e_final)) batchData["Final ΔE"].push(data.delta_e_final);
 
@@ -169,6 +237,14 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     <td>${fmt(data.height_val, digits)}</td>
                     <td>${fmt(data.perimeter_val, digits)}</td>
                     <td>${escapeHtml(unit)}</td>
+                    <td>${fmt(data.total_area, digits)} ${escapeHtml(aUnit)}</td>
+                    <td>${fmt(data.flesh_area, digits)} ${escapeHtml(aUnit)}</td>
+                    <td>${fmt(data.flesh_area_ratio, 3)}</td>
+                    <td>${fmt(data.elongation_factor, 3)}</td>
+                    <td>${fmt(data.asymmetry_score, 3)}</td>
+                    <td>${fmt(data.flesh_asymmetry_score, 3)}</td>
+                    <td>${fmt(data.midline_curvature, 4)}</td>
+                    <td>${fmt(data.circularity, 3)}</td>
                     <td>${fmt(data.delta_e_initial, 2)}</td>
                     <td>${fmt(data.delta_e_final, 2)}</td>
                     <td>${isNumber(data.processing_ms) ? `${data.processing_ms} ms` : "N/A"}</td>
@@ -177,13 +253,13 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 `;
             } else {
                 failureCount++;
-                tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="10" style="color:red;">Error: ${escapeHtml(data.message)}</td>`;
+                tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">Error: ${escapeHtml(data.message)}</td>`;
             }
             tbody.appendChild(tr);
         } catch (err) {
             failureCount++;
             const tr = document.createElement("tr");
-            tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="10" style="color:red;">API request failed: ${escapeHtml(err.message)}</td>`;
+            tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">API request failed: ${escapeHtml(err.message)}</td>`;
             tbody.appendChild(tr);
         }
 
