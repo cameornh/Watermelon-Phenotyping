@@ -113,38 +113,72 @@ document.getElementById('bulk-form').addEventListener('submit', async (e) => {
 });
 
 
-// --- IMPROVED HISTOGRAM LOGIC ---
+// --- SHARED AXES HISTOGRAM LOGIC ---
 function drawHistograms(batchData, container) {
+    
+    // 1. Pre-calculate global shared bounds for the Delta E graphs
+    const deKeys = ['Initial ΔE', 'Final ΔE'];
+    let allDE =[];
+    deKeys.forEach(k => {
+        if(batchData[k]) allDE.push(...batchData[k].filter(v => typeof v === 'number' && !isNaN(v)));
+    });
+    
+    let deMin = 0, deMax = 1, deNumBins = 10, deBinWidth = 0.1, deMaxY = null;
+    if (allDE.length > 0) {
+        allDE.sort((a,b) => a-b);
+        deMin = allDE[0];
+        deMax = allDE[allDE.length - 1];
+        if (deMin === deMax) { deMin *= 0.9; deMax *= 1.1; }
+        let pad = (deMax - deMin) * 0.02;
+        deMin -= pad; deMax += pad;
+        
+        deNumBins = Math.max(8, Math.min(20, Math.ceil(Math.sqrt(batchData['Initial ΔE'].length))));
+        deBinWidth = (deMax - deMin) / deNumBins || 1;
+        
+        // Find the absolute highest bar across BOTH charts to lock the Y-axis
+        let maxCount = 0;
+        deKeys.forEach(k => {
+            let vals = batchData[k].filter(v => typeof v === 'number' && !isNaN(v));
+            let counts = new Array(deNumBins).fill(0);
+            vals.forEach(val => {
+                let idx = Math.floor((val - deMin) / deBinWidth);
+                if(idx >= deNumBins) idx = deNumBins-1;
+                if(idx < 0) idx = 0;
+                counts[idx]++;
+            });
+            if(Math.max(...counts) > maxCount) maxCount = Math.max(...counts);
+        });
+        deMaxY = maxCount + Math.ceil(maxCount * 0.1); // Add 10% headroom
+    }
+
+    // 2. Draw all histograms
     for (const [title, rawValues] of Object.entries(batchData)) {
-        // Strip out bad values safely
         const values = rawValues.filter(v => typeof v === 'number' && !isNaN(v));
         if (values.length === 0) continue; 
 
-        // Sort to establish true bounds
-        values.sort((a,b) => a-b);
-        let min = values[0];
-        let max = values[values.length - 1];
+        let min, max, numBins, binWidth, maxY;
+        let isDE = title.includes('ΔE');
 
-        // Failsafe: if every image had the exact same measurement, expand the bounds so the chart doesn't break
-        if (max === min) {
-            min = min * 0.9;
-            max = max * 1.1;
+        // Apply shared rules if it's a Delta E chart
+        if (isDE && allDE.length > 0) {
+            min = deMin; max = deMax; numBins = deNumBins; binWidth = deBinWidth; maxY = deMaxY;
+        } else {
+            // Otherwise, calculate bounds dynamically for Width, Height, Perimeter, R2
+            values.sort((a,b) => a-b);
+            min = values[0];
+            max = values[values.length - 1];
+            if (max === min) { min *= 0.9; max *= 1.1; }
+            let padding = (max - min) * 0.02;
+            min -= padding; max += padding;
+            numBins = Math.max(8, Math.min(20, Math.ceil(Math.sqrt(values.length))));
+            binWidth = (max - min) / numBins || 1;
+            maxY = null; 
         }
-
-        // Add a 2% visual pad to the edges so the bars don't touch the graph walls
-        const padding = (max - min) * 0.02;
-        min -= padding;
-        max += padding;
-
-        // Dynamic bin count: Minimum 8 bins, Maximum 20
-        const numBins = Math.max(8, Math.min(20, Math.ceil(Math.sqrt(values.length))));
-        const binWidth = (max - min) / numBins;
 
         const counts = new Array(numBins).fill(0);
         const labels =[];
-
         for (let i = 0; i < numBins; i++) {
-            labels.push(`${(min + i * binWidth).toFixed(1)}`);
+            labels.push(`${(min + i * binWidth).toFixed(1)} - ${(min + (i + 1) * binWidth).toFixed(1)}`);
         }
 
         values.forEach(val => {
@@ -160,27 +194,26 @@ function drawHistograms(batchData, container) {
         wrapper.appendChild(canvas);
         container.appendChild(wrapper);
 
+        let chartOptions = { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false }, title: { display: true, text: title, font: {size: 16} } }, 
+            scales: { 
+                x: { ticks: { maxRotation: 45, minRotation: 0 } },
+                y: { beginAtZero: true, title: { display: true, text: 'Frequency' }, ticks: { stepSize: 1 } } 
+            } 
+        };
+        
+        // Lock the Y-axis height for Delta E
+        if (maxY !== null) chartOptions.scales.y.max = maxY;
+
         new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: labels,
-                datasets:[{ 
-                    label: title, 
-                    data: counts, 
-                    backgroundColor: 'rgba(54, 162, 235, 0.6)', 
-                    borderColor: 'rgba(54, 162, 235, 1)', 
-                    borderWidth: 1 
-                }]
+                datasets:[{ label: title, data: counts, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
             },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                plugins: { legend: { display: false }, title: { display: true, text: title, font: {size: 16} } }, 
-                scales: { 
-                    x: { ticks: { maxRotation: 45, minRotation: 0 } },
-                    y: { beginAtZero: true, title: { display: true, text: 'Frequency' }, ticks: { stepSize: 1 } } 
-                } 
-            }
+            options: chartOptions
         });
     }
 }
