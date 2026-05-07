@@ -181,9 +181,9 @@ function drawHistograms(batchData, container) {
         
         // --- THE FIX: DYNAMIC DECIMAL PRECISION ---
         let precision = 1;
-        if (binWidth < 0.001) precision = 4;
-        else if (binWidth < 0.01) precision = 3;
-        else if (binWidth < 0.1) precision = 2;
+        if (binWidth < 0.005) precision = 4;
+        else if (binWidth < 0.05) precision = 3;
+        else if (binWidth < 0.5) precision = 2; // Now guarantees 2 decimals even for wide bins
         
         for (let i = 0; i < numBins; i++) {
             labels.push(`${(min + i * binWidth).toFixed(precision)} - ${(min + (i + 1) * binWidth).toFixed(precision)}`);
