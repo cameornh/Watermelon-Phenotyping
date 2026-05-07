@@ -21,7 +21,7 @@ document.getElementById('single-form').addEventListener('submit', async (e) => {
         if (data.success) {
             status.innerText = "Success!";
             
-            let de_text = data.delta_e_final ? 
+            let de_text = data.delta_e_final !== null ? 
                 `<p><strong>ΔE Improved:</strong> ${data.delta_e_initial.toFixed(2)} → ${data.delta_e_final.toFixed(2)}</p>` : 
                 `<p><strong>Color Check:</strong> Not found (Dimensions are in Pixels!)</p>`;
 
@@ -58,10 +58,10 @@ document.getElementById('bulk-form').addEventListener('submit', async (e) => {
     
     let batchData = {
         'R² Score': [],
-        'Width (cm)': [],
+        'Width (cm)':[],
         'Height (cm)':[],
         'Perimeter (cm)': [],
-        'Initial ΔE': [],
+        'Initial ΔE':[],
         'Final ΔE':[]
     };
 
@@ -76,15 +76,15 @@ document.getElementById('bulk-form').addEventListener('submit', async (e) => {
             
             const tr = document.createElement('tr');
             if (data.success) {
-                if(data.r2_score) batchData['R² Score'].push(data.r2_score);
-                if(data.width_val) batchData['Width (cm)'].push(data.width_val);
-                if(data.height_val) batchData['Height (cm)'].push(data.height_val);
-                if(data.perimeter_val) batchData['Perimeter (cm)'].push(data.perimeter_val);
-                if(data.delta_e_initial) batchData['Initial ΔE'].push(data.delta_e_initial);
-                if(data.delta_e_final) batchData['Final ΔE'].push(data.delta_e_final);
+                if(data.r2_score !== null) batchData['R² Score'].push(data.r2_score);
+                if(data.width_val !== null) batchData['Width (cm)'].push(data.width_val);
+                if(data.height_val !== null) batchData['Height (cm)'].push(data.height_val);
+                if(data.perimeter_val !== null) batchData['Perimeter (cm)'].push(data.perimeter_val);
+                if(data.delta_e_initial !== null) batchData['Initial ΔE'].push(data.delta_e_initial);
+                if(data.delta_e_final !== null) batchData['Final ΔE'].push(data.delta_e_final);
 
-                let dE_i = data.delta_e_initial ? data.delta_e_initial.toFixed(2) : "N/A";
-                let dE_f = data.delta_e_final ? data.delta_e_final.toFixed(2) : "N/A";
+                let dE_i = data.delta_e_initial !== null ? data.delta_e_initial.toFixed(2) : "N/A";
+                let dE_f = data.delta_e_final !== null ? data.delta_e_final.toFixed(2) : "N/A";
 
                 tr.innerHTML = `
                     <td>${data.filename}</td>
@@ -113,13 +113,19 @@ document.getElementById('bulk-form').addEventListener('submit', async (e) => {
 });
 
 function drawHistograms(batchData, container) {
-    for (const[title, values] of Object.entries(batchData)) {
+    for (const[title, rawValues] of Object.entries(batchData)) {
+        // PREVENT CRASHES: Strip out any null, undefined, or NaN values before math!
+        const values = rawValues.filter(v => typeof v === 'number' && !isNaN(v));
         if (values.length === 0) continue; 
 
         const min = Math.min(...values);
         const max = Math.max(...values);
-        const numBins = Math.max(5, Math.min(15, Math.ceil(values.length / 3)));
-        const binWidth = (max - min) / numBins || 1;
+        
+        let numBins = Math.max(5, Math.min(15, Math.ceil(values.length / 3)));
+        if (max === min) numBins = 1; // Failsafe if all values are identical
+        
+        let binWidth = (max - min) / numBins;
+        if (binWidth === 0) binWidth = 1;
         
         const counts = new Array(numBins).fill(0);
         const labels =[];
@@ -131,6 +137,7 @@ function drawHistograms(batchData, container) {
         values.forEach(val => {
             let idx = Math.floor((val - min) / binWidth);
             if (idx >= numBins) idx = numBins - 1; 
+            if (idx < 0) idx = 0;
             counts[idx]++;
         });
 
@@ -146,7 +153,12 @@ function drawHistograms(batchData, container) {
                 labels: labels,
                 datasets:[{ label: title, data: counts, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: title } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Frequency' } } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false }, title: { display: true, text: title } }, 
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'Frequency' }, ticks: { stepSize: 1 } } } 
+            }
         });
     }
 }
