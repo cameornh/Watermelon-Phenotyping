@@ -1,7 +1,8 @@
 // For local testing, change to http://localhost:8000/process_single
 const API_URL = "https://crabbly-watermelonphenotyping.hf.space/process_single";
 const SINGLE_REQUEST_TIMEOUT_MS = 120000;
-const BULK_REQUEST_TIMEOUT_MS = 45000;
+const BULK_REQUEST_TIMEOUT_MS = 5000;
+const BULK_TIMEOUT_MESSAGE = "Taking longer than 5 seconds. Moving on.";
 
 function processUrl(includeImage) {
     return `${API_URL}?include_image=${includeImage ? "true" : "false"}`;
@@ -63,7 +64,7 @@ async function postImage(file, includeImage, timeoutMs = SINGLE_REQUEST_TIMEOUT_
         text = await response.text();
     } catch (err) {
         if (err.name === "AbortError") {
-            throw new Error(`Timed out after ${Math.round(timeoutMs / 1000)}s`);
+            throw new Error(timeoutMs === BULK_REQUEST_TIMEOUT_MS ? BULK_TIMEOUT_MESSAGE : `Timed out after ${Math.round(timeoutMs / 1000)}s`);
         }
         throw err;
     } finally {
@@ -87,18 +88,7 @@ async function postImage(file, includeImage, timeoutMs = SINGLE_REQUEST_TIMEOUT_
 }
 
 async function postBulkImage(file, includeImage) {
-    try {
-        return await postImage(file, includeImage, BULK_REQUEST_TIMEOUT_MS);
-    } catch (firstErr) {
-        try {
-            const retryData = await postImage(file, false, BULK_REQUEST_TIMEOUT_MS);
-            const retryNote = `First request failed (${firstErr.message}); retry succeeded without preview.`;
-            retryData.warnings = Array.isArray(retryData.warnings) ? [...retryData.warnings, retryNote] : [retryNote];
-            return retryData;
-        } catch (secondErr) {
-            throw new Error(`${firstErr.message}; retry failed: ${secondErr.message}`);
-        }
-    }
+    return postImage(file, includeImage, BULK_REQUEST_TIMEOUT_MS);
 }
 
 function previewCell(data) {
@@ -248,7 +238,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     <td>${fmt(data.delta_e_initial, 2)}</td>
                     <td>${fmt(data.delta_e_final, 2)}</td>
                     <td>${isNumber(data.processing_ms) ? `${data.processing_ms} ms` : "N/A"}</td>
-                    <td>${notes ? escapeHtml(notes) : ""}</td>
+                    <td class="notes-cell">${notes ? escapeHtml(notes) : ""}</td>
                     <td>${previewCell(data)}</td>
                 `;
             } else {
@@ -259,7 +249,8 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         } catch (err) {
             failureCount++;
             const tr = document.createElement("tr");
-            tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">API request failed: ${escapeHtml(err.message)}</td>`;
+            const message = err.message === BULK_TIMEOUT_MESSAGE ? BULK_TIMEOUT_MESSAGE : `API request failed: ${err.message}`;
+            tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">${escapeHtml(message)}</td>`;
             tbody.appendChild(tr);
         }
 
