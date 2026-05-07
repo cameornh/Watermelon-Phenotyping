@@ -1,8 +1,8 @@
 // For local testing, change to http://localhost:8000/process_single
 const API_URL = "https://crabbly-watermelonphenotyping.hf.space/process_single";
 const SINGLE_REQUEST_TIMEOUT_MS = 120000;
-const BULK_REQUEST_TIMEOUT_MS = 5000;
-const BULK_TIMEOUT_MESSAGE = "Taking longer than 5 seconds. Moving on.";
+const BULK_REQUEST_TIMEOUT_MS = 10000;
+const BULK_TIMEOUT_MESSAGE = "Taking longer than 10 seconds. Moving on.";
 
 function processUrl(includeImage) {
     return `${API_URL}?include_image=${includeImage ? "true" : "false"}`;
