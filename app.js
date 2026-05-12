@@ -102,7 +102,7 @@ async function postImage(file, includeImage, applySmoothing, timeoutMs = SINGLE_
     }
 }
 
-async function postBulkImage(file, includeImage) {
+async function postBulkImage(file, includeImage, applySmoothing) {
     // 30 second timeout, 1 automatic retry if the server drops the connection
     return postImage(file, includeImage, applySmoothing, BULK_REQUEST_TIMEOUT_MS, 1);
 }
