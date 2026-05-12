@@ -1,10 +1,10 @@
 // For local testing, change to http://localhost:8000/process_single
-const API_URL = "https://crabbly-watermelonphenotyping.hf.space/process_single"; 
-const SINGLE_REQUEST_TIMEOUT_MS = 120000;
-const BULK_REQUEST_TIMEOUT_MS = 10000;
-const BULK_TIMEOUT_MESSAGE = "Taking longer than 10 seconds. Moving on.";
+const API_URL = "https://crabbly-watermelonphenotyping.hf.space/process_single";
+const SINGLE_REQUEST_TIMEOUT_MS = 120000; // 2 minutes
+const BULK_REQUEST_TIMEOUT_MS = 30000;    // Increased to 30 seconds to prevent premature drops
+const BULK_TIMEOUT_MESSAGE = "Taking longer than 30 seconds. Moving on.";
 
-function processUrl(includeImage, applySmoothing) {
+function processUrl(includeImage) {
     return `${API_URL}?include_image=${includeImage ? "true" : "false"}&apply_smoothing=${applySmoothing ? "true" : "false"}`;
 }
 
@@ -42,49 +42,69 @@ function rowNotes(data) {
     return notes.join(" | ");
 }
 
-async function postImage(file, includeImage, applySmoothing, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS) {
+async function postImage(file, includeImage, applySmoothing, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS, maxRetries = 1) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const controller = new AbortController();
-    const timerId = window.setTimeout(() => controller.abort(), timeoutMs);
-    let response;
-    let text;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    try {
-        response = await fetch(processUrl(includeImage, applySmoothing), {
-            method: "POST",
-            body: formData,
-            signal: controller.signal
-        });
-        text = await response.text();
-    } catch (err) {
-        if (err.name === "AbortError") {
-            throw new Error(timeoutMs === BULK_REQUEST_TIMEOUT_MS ? BULK_TIMEOUT_MESSAGE : `Timed out after ${Math.round(timeoutMs / 1000)}s`);
+        try {
+            // Strict timeout wrapper
+            // --- CHANGE IS HERE: Passed applySmoothing into processUrl ---
+            const fetchPromise = fetch(processUrl(includeImage, applySmoothing), {
+                method: "POST",
+                body: formData,
+                signal: controller.signal
+            });
+
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Timeout")), timeoutMs)
+            );
+
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            clearTimeout(timeoutId);
+
+            const text = await response.text();
+            
+            let data;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (err) {
+                const snippet = text ? text.slice(0, 180) : "empty response";
+                throw new Error(`HTTP ${response.status}: non-JSON response (${snippet})`);
+            }
+
+            if (!response.ok) {
+                throw new Error(data.message || `HTTP ${response.status}`);
+            }
+
+            return data;
+
+        } catch (err) {
+            clearTimeout(timeoutId);
+            
+            const isTimeout = err.name === "AbortError" || err.message === "Timeout";
+            
+            // If we are out of retries, throw the error
+            if (attempt === maxRetries) {
+                if (isTimeout) {
+                    throw new Error(timeoutMs === BULK_REQUEST_TIMEOUT_MS ? BULK_TIMEOUT_MESSAGE : `Timed out after ${Math.round(timeoutMs / 1000)}s`);
+                }
+                throw err;
+            }
+            
+            // Otherwise, wait 2 seconds and retry
+            console.warn(`Attempt ${attempt + 1} failed for ${file.name}. Retrying...`);
+            await new Promise(r => setTimeout(r, 2000));
         }
-        throw err;
-    } finally {
-        window.clearTimeout(timerId);
     }
-
-    let data;
-
-    try {
-        data = text ? JSON.parse(text) : {};
-    } catch (err) {
-        const snippet = text ? text.slice(0, 180) : "empty response";
-        throw new Error(`HTTP ${response.status}: non-JSON response (${snippet})`);
-    }
-
-    if (!response.ok) {
-        throw new Error(data.message || `HTTP ${response.status}`);
-    }
-
-    return data;
 }
 
-async function postBulkImage(file, includeImage, applySmoothing) {
-    return postImage(file, includeImage, applySmoothing, BULK_REQUEST_TIMEOUT_MS);
+async function postBulkImage(file, includeImage) {
+    // 30 second timeout, 1 automatic retry if the server drops the connection
+    return postImage(file, includeImage, applySmoothing, BULK_REQUEST_TIMEOUT_MS, 1);
 }
 
 function previewCell(data) {
@@ -105,7 +125,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
     resultDiv.innerHTML = "";
 
     try {
-        const data = await postImage(file, true, applySmoothing, SINGLE_REQUEST_TIMEOUT_MS);
+        const data = await postImage(file, true, applySmoothing, SINGLE_REQUEST_TIMEOUT_MS, 0); // No retries for single images
 
         if (data.success) {
             const unit = measurementUnit(data);
@@ -120,11 +140,9 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
             } else if (!data.color_checker_found) {
                 scaleText = `<p><strong>Scale:</strong> ColorChecker not found; dimensions are original-image pixels.</p>`;
             }
-            
-            const r2Str = data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A (Smoothing Off)";
 
             resultDiv.innerHTML = `
-                <p><strong>R²:</strong> ${r2Str}</p>
+                <p><strong>R²:</strong> ${data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A (Smoothing Off)"}</p>
                 <p><strong>Width:</strong> ${fmt(data.width_val, digits)} ${escapeHtml(unit)}</p>
                 <p><strong>Height:</strong> ${fmt(data.height_val, digits)} ${escapeHtml(unit)}</p>
                 <p><strong>Perimeter:</strong> ${fmt(data.perimeter_val, digits)} ${escapeHtml(unit)}</p>
@@ -154,7 +172,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
 document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const files = document.getElementById("bulk-files").files;
-    const includeImages = document.getElementById("bulk-previews").checked;
+    const includeImages = document.getElementById("bulk-previews") ? document.getElementById("bulk-previews").checked : true;
     const applySmoothing = document.getElementById("bulk-smoothing").checked;
     const status = document.getElementById("bulk-status");
     const table = document.getElementById("bulk-table");
@@ -172,17 +190,17 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
 
     const batchData = {
         "R² Score": [],
-        "Width (cm)": [],
-        "Height (cm)":[],
-        "Perimeter (cm)": [],
-        "Total Area (cm²)":[],
-        "Flesh Area (cm²)": [],
+        "Width (cm)":[],
+        "Height (cm)": [],
+        "Perimeter (cm)":[],
+        "Total Area (cm²)": [],
+        "Flesh Area (cm²)":[],
         "Flesh / Total Ratio": [],
-        "Elongation Factor":[],
-        "Circularity": [],
+        "Elongation Factor": [],
+        "Circularity":[],
         "Asymmetry": [],
-        "Flesh Asymmetry":[],
-        "Midline Curvature": [],
+        "Flesh Asymmetry": [],
+        "Midline Curvature":[],
         "Initial ΔE": [],
         "Final ΔE":[]
     };
@@ -220,11 +238,9 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 if (isNumber(data.delta_e_initial)) batchData["Initial ΔE"].push(data.delta_e_initial);
                 if (isNumber(data.delta_e_final)) batchData["Final ΔE"].push(data.delta_e_final);
 
-                const r2Str = data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A";
-
                 tr.innerHTML = `
                     <td>${escapeHtml(data.filename || files[i].name)}</td>
-                    <td>${r2Str}</td>
+                    <td>${data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A"}</td>
                     <td>${fmt(data.width_val, digits)}</td>
                     <td>${fmt(data.height_val, digits)}</td>
                     <td>${fmt(data.perimeter_val, digits)}</td>
@@ -251,12 +267,17 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         } catch (err) {
             failureCount++;
             const tr = document.createElement("tr");
-            const message = err.message === BULK_TIMEOUT_MESSAGE ? BULK_TIMEOUT_MESSAGE : `API request failed: ${err.message}`;
+            const message = err.message === BULK_TIMEOUT_MESSAGE ? BULK_TIMEOUT_MESSAGE : `Network/API Error: ${err.message}`;
             tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">${escapeHtml(message)}</td>`;
             tbody.appendChild(tr);
         }
 
         completed++;
+        
+        // THE FIX: Cool-down period between requests to prevent overwhelming the proxy
+        if (i < files.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
     }
 
     const excludedText = pixelScaleCount > 0 ? ` ${pixelScaleCount} pixel-scale row(s) excluded from cm histograms.` : "";
@@ -266,7 +287,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
 
 function drawHistograms(batchData, container) {
     const deKeys = ["Initial ΔE", "Final ΔE"];
-    let allDE = [];
+    let allDE =[];
     deKeys.forEach(k => {
         if (batchData[k]) allDE.push(...batchData[k].filter(isNumber));
     });
