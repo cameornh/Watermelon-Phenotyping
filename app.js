@@ -1,8 +1,8 @@
 // For local testing, change to http://localhost:8000/process_single
 const API_URL = "https://crabbly-watermelonphenotyping.hf.space/process_single";
-const SINGLE_REQUEST_TIMEOUT_MS = 120000;
-const BULK_REQUEST_TIMEOUT_MS = 10000;
-const BULK_TIMEOUT_MESSAGE = "Taking longer than 10 seconds. Moving on.";
+const SINGLE_REQUEST_TIMEOUT_MS = 120000; // 2 minutes
+const BULK_REQUEST_TIMEOUT_MS = 30000;    // Increased to 30 seconds to prevent premature drops
+const BULK_TIMEOUT_MESSAGE = "Taking longer than 30 seconds. Moving on.";
 
 function processUrl(includeImage) {
     return `${API_URL}?include_image=${includeImage ? "true" : "false"}`;
@@ -10,11 +10,7 @@ function processUrl(includeImage) {
 
 function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        "\"": "&quot;",
-        "'": "&#039;"
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"
     }[ch]));
 }
 
@@ -38,7 +34,7 @@ function areaUnit(data) {
 }
 
 function rowNotes(data) {
-    const notes = [];
+    const notes =[];
     if (Array.isArray(data.warnings)) notes.push(...data.warnings);
     if (data.rind_source && data.rind_source !== "whole_mask_overlap") {
         notes.push(`rind: ${data.rind_source}`);
@@ -46,49 +42,69 @@ function rowNotes(data) {
     return notes.join(" | ");
 }
 
-async function postImage(file, includeImage, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS) {
+// --- THE FIX: ADDED RETRIES AND STRICT PROMISE.RACE ---
+async function postImage(file, includeImage, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS, maxRetries = 1) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const controller = new AbortController();
-    const timerId = window.setTimeout(() => controller.abort(), timeoutMs);
-    let response;
-    let text;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    try {
-        response = await fetch(processUrl(includeImage), {
-            method: "POST",
-            body: formData,
-            signal: controller.signal
-        });
-        text = await response.text();
-    } catch (err) {
-        if (err.name === "AbortError") {
-            throw new Error(timeoutMs === BULK_REQUEST_TIMEOUT_MS ? BULK_TIMEOUT_MESSAGE : `Timed out after ${Math.round(timeoutMs / 1000)}s`);
+        try {
+            // Strict timeout wrapper
+            const fetchPromise = fetch(processUrl(includeImage), {
+                method: "POST",
+                body: formData,
+                signal: controller.signal
+            });
+
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Timeout")), timeoutMs)
+            );
+
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            clearTimeout(timeoutId);
+
+            const text = await response.text();
+            
+            let data;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (err) {
+                const snippet = text ? text.slice(0, 180) : "empty response";
+                throw new Error(`HTTP ${response.status}: non-JSON response (${snippet})`);
+            }
+
+            if (!response.ok) {
+                throw new Error(data.message || `HTTP ${response.status}`);
+            }
+
+            return data;
+
+        } catch (err) {
+            clearTimeout(timeoutId);
+            
+            const isTimeout = err.name === "AbortError" || err.message === "Timeout";
+            
+            // If we are out of retries, throw the error
+            if (attempt === maxRetries) {
+                if (isTimeout) {
+                    throw new Error(timeoutMs === BULK_REQUEST_TIMEOUT_MS ? BULK_TIMEOUT_MESSAGE : `Timed out after ${Math.round(timeoutMs / 1000)}s`);
+                }
+                throw err;
+            }
+            
+            // Otherwise, wait 2 seconds and retry
+            console.warn(`Attempt ${attempt + 1} failed for ${file.name}. Retrying...`);
+            await new Promise(r => setTimeout(r, 2000));
         }
-        throw err;
-    } finally {
-        window.clearTimeout(timerId);
     }
-
-    let data;
-
-    try {
-        data = text ? JSON.parse(text) : {};
-    } catch (err) {
-        const snippet = text ? text.slice(0, 180) : "empty response";
-        throw new Error(`HTTP ${response.status}: non-JSON response (${snippet})`);
-    }
-
-    if (!response.ok) {
-        throw new Error(data.message || `HTTP ${response.status}`);
-    }
-
-    return data;
 }
 
 async function postBulkImage(file, includeImage) {
-    return postImage(file, includeImage, BULK_REQUEST_TIMEOUT_MS);
+    // 30 second timeout, 1 automatic retry if the server drops the connection
+    return postImage(file, includeImage, BULK_REQUEST_TIMEOUT_MS, 1);
 }
 
 function previewCell(data) {
@@ -108,7 +124,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
     resultDiv.innerHTML = "";
 
     try {
-        const data = await postImage(file, true, SINGLE_REQUEST_TIMEOUT_MS);
+        const data = await postImage(file, true, SINGLE_REQUEST_TIMEOUT_MS, 0); // No retries for single images
 
         if (data.success) {
             const unit = measurementUnit(data);
@@ -155,7 +171,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
 document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const files = document.getElementById("bulk-files").files;
-    const includeImages = document.getElementById("bulk-previews").checked;
+    const includeImages = document.getElementById("bulk-previews") ? document.getElementById("bulk-previews").checked : true;
     const status = document.getElementById("bulk-status");
     const table = document.getElementById("bulk-table");
     const tbody = table.querySelector("tbody");
@@ -172,19 +188,19 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
 
     const batchData = {
         "R² Score": [],
-        "Width (cm)": [],
+        "Width (cm)":[],
         "Height (cm)": [],
-        "Perimeter (cm)": [],
+        "Perimeter (cm)":[],
         "Total Area (cm²)": [],
-        "Flesh Area (cm²)": [],
+        "Flesh Area (cm²)":[],
         "Flesh / Total Ratio": [],
         "Elongation Factor": [],
-        "Circularity": [],
+        "Circularity":[],
         "Asymmetry": [],
         "Flesh Asymmetry": [],
-        "Midline Curvature": [],
+        "Midline Curvature":[],
         "Initial ΔE": [],
-        "Final ΔE": []
+        "Final ΔE":[]
     };
 
     for (let i = 0; i < files.length; i++) {
@@ -249,12 +265,17 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         } catch (err) {
             failureCount++;
             const tr = document.createElement("tr");
-            const message = err.message === BULK_TIMEOUT_MESSAGE ? BULK_TIMEOUT_MESSAGE : `API request failed: ${err.message}`;
+            const message = err.message === BULK_TIMEOUT_MESSAGE ? BULK_TIMEOUT_MESSAGE : `Network/API Error: ${err.message}`;
             tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">${escapeHtml(message)}</td>`;
             tbody.appendChild(tr);
         }
 
         completed++;
+        
+        // THE FIX: Cool-down period between requests to prevent overwhelming the proxy
+        if (i < files.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
     }
 
     const excludedText = pixelScaleCount > 0 ? ` ${pixelScaleCount} pixel-scale row(s) excluded from cm histograms.` : "";
@@ -264,7 +285,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
 
 function drawHistograms(batchData, container) {
     const deKeys = ["Initial ΔE", "Final ΔE"];
-    let allDE = [];
+    let allDE =[];
     deKeys.forEach(k => {
         if (batchData[k]) allDE.push(...batchData[k].filter(isNumber));
     });
@@ -284,7 +305,7 @@ function drawHistograms(batchData, container) {
 
         let maxCount = 0;
         deKeys.forEach(k => {
-            const vals = batchData[k] ? batchData[k].filter(isNumber) : [];
+            const vals = batchData[k] ? batchData[k].filter(isNumber) :[];
             const counts = new Array(deNumBins).fill(0);
             vals.forEach(val => {
                 let idx = Math.floor((val - deMin) / deBinWidth);
@@ -321,7 +342,7 @@ function drawHistograms(batchData, container) {
         }
 
         const counts = new Array(numBins).fill(0);
-        const labels = [];
+        const labels =[];
 
         let precision = 1;
         if (binWidth < 0.005) precision = 4;
