@@ -169,6 +169,8 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
     }
 });
 
+let globalCsvData =[];
+
 document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const files = document.getElementById("bulk-files").files;
@@ -184,7 +186,6 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     table.style.display = "table";
     const downloadBtn = document.getElementById("download-csv-btn");
     downloadBtn.style.display = "none";
-    let globalCsvData =[];
 
     // Initialize CSV with Headers
     globalCsvData = [[
