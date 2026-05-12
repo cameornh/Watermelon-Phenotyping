@@ -182,6 +182,17 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     tbody.innerHTML = "";
     chartsContainer.innerHTML = "";
     table.style.display = "table";
+    const downloadBtn = document.getElementById("download-csv-btn");
+    downloadBtn.style.display = "none";
+    let globalCsvData =[];
+
+    // Initialize CSV with Headers
+    globalCsvData = [[
+        "Filename", "R²", "Width (cm)", "Height (cm)", "Perimeter (cm)", 
+        "Total Area (cm²)", "Flesh Area (cm²)", "Flesh Ratio", "Elongation", 
+        "Asymmetry", "Flesh Asymmetry", "Midline Curvature", "Circularity", 
+        "Init ΔE", "Final ΔE", "Time (ms)"
+    ].join(",")];
 
     let completed = 0;
     let successCount = 0;
@@ -214,21 +225,25 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
 
             if (data.success) {
                 successCount++;
-                const unit = measurementUnit(data);
-                const aUnit = areaUnit(data);
-                const digits = unit === "cm" ? 1 : 0;
+                const isCm = measurementUnit(data) === "cm";
                 const notes = rowNotes(data);
 
+                // Enforce N/A for physical dimensions if ColorChecker failed
+                let w = isCm ? data.width_val : null;
+                let h = isCm ? data.height_val : null;
+                let p = isCm ? data.perimeter_val : null;
+                let ta = isCm ? data.total_area : null;
+                let fa = isCm ? data.flesh_area : null;
+
+                if (!isCm) pixelScaleCount++;
+
+                // Histogram data collection
                 if (isNumber(data.r2_score)) batchData["R² Score"].push(data.r2_score);
-                if (unit === "cm") {
-                    if (isNumber(data.width_val)) batchData["Width (cm)"].push(data.width_val);
-                    if (isNumber(data.height_val)) batchData["Height (cm)"].push(data.height_val);
-                    if (isNumber(data.perimeter_val)) batchData["Perimeter (cm)"].push(data.perimeter_val);
-                    if (isNumber(data.total_area)) batchData["Total Area (cm²)"].push(data.total_area);
-                    if (isNumber(data.flesh_area)) batchData["Flesh Area (cm²)"].push(data.flesh_area);
-                } else {
-                    pixelScaleCount++;
-                }
+                if (isNumber(w)) batchData["Width (cm)"].push(w);
+                if (isNumber(h)) batchData["Height (cm)"].push(h);
+                if (isNumber(p)) batchData["Perimeter (cm)"].push(p);
+                if (isNumber(ta)) batchData["Total Area (cm²)"].push(ta);
+                if (isNumber(fa)) batchData["Flesh Area (cm²)"].push(fa);
                 if (isNumber(data.flesh_area_ratio)) batchData["Flesh / Total Ratio"].push(data.flesh_area_ratio);
                 if (isNumber(data.elongation_factor)) batchData["Elongation Factor"].push(data.elongation_factor);
                 if (isNumber(data.circularity)) batchData["Circularity"].push(data.circularity);
@@ -238,15 +253,15 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 if (isNumber(data.delta_e_initial)) batchData["Initial ΔE"].push(data.delta_e_initial);
                 if (isNumber(data.delta_e_final)) batchData["Final ΔE"].push(data.delta_e_final);
 
+                // Update Table (No units in columns)
                 tr.innerHTML = `
                     <td>${escapeHtml(data.filename || files[i].name)}</td>
                     <td>${data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A"}</td>
-                    <td>${fmt(data.width_val, digits)}</td>
-                    <td>${fmt(data.height_val, digits)}</td>
-                    <td>${fmt(data.perimeter_val, digits)}</td>
-                    <td>${escapeHtml(unit)}</td>
-                    <td>${fmt(data.total_area, digits)} ${escapeHtml(aUnit)}</td>
-                    <td>${fmt(data.flesh_area, digits)} ${escapeHtml(aUnit)}</td>
+                    <td>${fmt(w, 1)}</td>
+                    <td>${fmt(h, 1)}</td>
+                    <td>${fmt(p, 1)}</td>
+                    <td>${fmt(ta, 1)}</td>
+                    <td>${fmt(fa, 1)}</td>
                     <td>${fmt(data.flesh_area_ratio, 3)}</td>
                     <td>${fmt(data.elongation_factor, 3)}</td>
                     <td>${fmt(data.asymmetry_score, 3)}</td>
@@ -255,10 +270,23 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     <td>${fmt(data.circularity, 3)}</td>
                     <td>${fmt(data.delta_e_initial, 2)}</td>
                     <td>${fmt(data.delta_e_final, 2)}</td>
-                    <td>${isNumber(data.processing_ms) ? `${data.processing_ms} ms` : "N/A"}</td>
+                    <td>${isNumber(data.processing_ms) ? data.processing_ms : "N/A"}</td>
                     <td class="notes-cell">${notes ? escapeHtml(notes) : ""}</td>
                     <td>${previewCell(data)}</td>
                 `;
+
+                // Update CSV
+                const csvRow = [
+                    `"${data.filename || files[i].name}"`,
+                    data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A",
+                    fmt(w, 1), fmt(h, 1), fmt(p, 1), fmt(ta, 1), fmt(fa, 1),
+                    fmt(data.flesh_area_ratio, 3), fmt(data.elongation_factor, 3),
+                    fmt(data.asymmetry_score, 3), fmt(data.flesh_asymmetry_score, 3),
+                    fmt(data.midline_curvature, 4), fmt(data.circularity, 3),
+                    fmt(data.delta_e_initial, 2), fmt(data.delta_e_final, 2),
+                    isNumber(data.processing_ms) ? data.processing_ms : "N/A"
+                ];
+                globalCsvData.push(csvRow.join(","));
             } else {
                 failureCount++;
                 tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">Error: ${escapeHtml(data.message)}</td>`;
@@ -282,6 +310,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
 
     const excludedText = pixelScaleCount > 0 ? ` ${pixelScaleCount} pixel-scale row(s) excluded from cm histograms.` : "";
     status.innerText = `Batch complete: ${successCount} succeeded, ${failureCount} failed, ${completed} attempted.${excludedText}`;
+    if (successCount > 0) downloadBtn.style.display = "inline-block";
     drawHistograms(batchData, chartsContainer);
 });
 
@@ -395,3 +424,22 @@ function drawHistograms(batchData, container) {
         container.innerHTML = `<p class="muted">No numeric values available for histograms.</p>`;
     }
 }
+
+// --- CSV DOWNLOAD HANDLER ---
+document.getElementById("download-csv-btn").addEventListener("click", () => {
+    const csvString = globalCsvData.join("\n");
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    
+    const now = new Date();
+    const dateStr = now.toISOString().replace(/T/, '_').replace(/:/g, '-').slice(0, 19);
+    
+    a.setAttribute('download', `phenotype_data_${dateStr}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+});
