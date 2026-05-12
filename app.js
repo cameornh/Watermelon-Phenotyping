@@ -160,6 +160,14 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
             const notes = rowNotes(data);
             status.innerText = "Success";
 
+            // Send event to Google Analytics
+            if (typeof gtag === 'function') {
+                gtag('event', 'processed_single_image', {
+                    'event_category': 'Phenotyping',
+                    'success': true
+                });
+            }
+
             let scaleText = `<p><strong>Scale:</strong> Measurements are in ${escapeHtml(unit)}.</p>`;
             if (data.delta_e_initial !== null && data.delta_e_final !== null) {
                 scaleText = `<p><strong>Delta E:</strong> ${fmt(data.delta_e_initial, 2)} to ${fmt(data.delta_e_final, 2)}</p>`;
@@ -336,8 +344,18 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         }
     }
 
-    const excludedText = pixelScaleCount > 0 ? ` ${pixelScaleCount} pixel-scale row(s) excluded from cm histograms.` : "";
+    const excludedText = pixelScaleCount > 0 ? ` ${pixelScaleCount} pixel-scale row(s) ignored for spatial metrics.` : "";
     status.innerText = `Batch complete: ${successCount} succeeded, ${failureCount} failed, ${completed} attempted.${excludedText}`;
+
+    // Send event to Google Analytics
+    if (typeof gtag === 'function') {
+        gtag('event', 'processed_bulk_batch', {
+            'event_category': 'Phenotyping',
+            'images_attempted': completed,
+            'images_succeeded': successCount
+        });
+    }
+    
     if (successCount > 0) downloadBtn.style.display = "inline-block";
     drawHistograms(batchData, chartsContainer);
 });
