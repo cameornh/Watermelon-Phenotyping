@@ -22,6 +22,8 @@
     .muted { color: #666; font-size: 13px; }
     .bulk-card { width: min(1680px, calc(100vw - 48px)); max-width: none; margin-left: 50%; transform: translateX(-50%); box-sizing: border-box; }
     .table-wrap { width: 100%; overflow-x: auto; margin-top: 20px; padding-bottom: 6px; }
+    #download-csv-btn { display: none; margin-top: 15px; margin-bottom: 10px; padding: 10px 15px; font-weight: bold; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+    #download-csv-btn:hover { background: #0056b3; }
   </style>
 </head>
 <body>
@@ -57,6 +59,8 @@
         <button type="submit">Process Batch</button>
       </form>
       <div id="bulk-status" class="status"></div>
+
+      <button id="download-csv-btn">Download CSV</button>
       
       <div class="table-wrap">
         <table id="bulk-table" style="display: none;">
@@ -64,12 +68,11 @@
             <tr>
               <th>Filename</th>
               <th>R²</th>
-              <th>Width</th>
-              <th>Height</th>
-              <th>Perim</th>
-              <th>Unit</th>
-              <th>Total Area</th>
-              <th>Flesh Area</th>
+              <th>Width (cm)</th>
+              <th>Height (cm)</th>
+              <th>Perim (cm)</th>
+              <th>Total Area (cm²)</th>
+              <th>Flesh Area (cm²)</th>
               <th>Flesh Ratio</th>
               <th>Elong.</th>
               <th>Asym.</th>
@@ -78,7 +81,7 @@
               <th>Circularity</th>
               <th>Init ΔE</th>
               <th>Final ΔE</th>
-              <th>Time</th>
+              <th>Time (ms)</th>
               <th>Notes</th>
               <th>Preview</th>
             </tr>
