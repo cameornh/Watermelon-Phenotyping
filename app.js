@@ -3,6 +3,14 @@ const API_URL = "https://crabbly-watermelonphenotyping.hf.space/process_single";
 const SINGLE_REQUEST_TIMEOUT_MS = 120000; // 2 minutes
 const BULK_REQUEST_TIMEOUT_MS = 30000;    // Increased to 30 seconds to prevent premature drops
 const BULK_TIMEOUT_MESSAGE = "Taking longer than 30 seconds. Moving on.";
+const TARGET_HASH = "9139eb3676d5dfafced7613f044d86d9e7c84f40a04c83ddce062878621315d0";
+
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 function processUrl(includeImage, applySmoothing) {
     return `${API_URL}?include_image=${includeImage ? "true" : "false"}&apply_smoothing=${applySmoothing ? "true" : "false"}`;
@@ -43,8 +51,10 @@ function rowNotes(data) {
 }
 
 async function postImage(file, includeImage, applySmoothing, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS, maxRetries = 1) {
+    const pwd = document.getElementById("access-password").value;
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("password", pwd);
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const controller = new AbortController();
@@ -125,14 +135,17 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
     resultDiv.innerHTML = "";
 
     try {
+        if (await sha256(document.getElementById("access-password").value) !== TARGET_HASH) {
+            throw new Error("Unauthorized: Incorrect password.");
+        }
         const data = await postImage(file, true, applySmoothing, SINGLE_REQUEST_TIMEOUT_MS, 0); // No retries for single images
-
+        
         if (data.success) {
             const unit = measurementUnit(data);
             const aUnit = areaUnit(data);
             const digits = unit === "cm" ? 2 : 0;
             const notes = rowNotes(data);
-            status.innerText = "Success!";
+            status.innerText = "Success";
 
             let scaleText = `<p><strong>Scale:</strong> Measurements are in ${escapeHtml(unit)}.</p>`;
             if (data.delta_e_initial !== null && data.delta_e_final !== null) {
@@ -200,6 +213,16 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     let failureCount = 0;
     let pixelScaleCount = 0;
 
+    try {
+        if (await sha256(document.getElementById("access-password").value) !== TARGET_HASH) {
+            status.innerText = "Error: Unauthorized: Incorrect password.";
+            return;
+        }
+    } catch(err) {
+        status.innerText = "Error checking password.";
+        return;
+    }
+    
     const batchData = {
         "R² Score": [],
         "Width (cm)":[],
