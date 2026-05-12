@@ -69,8 +69,8 @@ function rowNotes(data) {
 
 async function postImage(file, includeImage, applySmoothing, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS, maxRetries = 1) {
     const formData = new FormData();
-    formData.append("file", file);
     formData.append("password", currentPassword); // Uses the verified password from memory
+    formData.append("file", file);
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const controller = new AbortController();
