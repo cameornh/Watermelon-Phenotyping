@@ -210,6 +210,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     tbody.innerHTML = "";
     chartsContainer.innerHTML = "";
     table.style.display = "table";
+    document.getElementById("bulk-section").classList.add("bulk-card");
     const downloadBtn = document.getElementById("download-csv-btn");
     downloadBtn.style.display = "none";
 
