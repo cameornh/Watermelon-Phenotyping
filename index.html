@@ -32,6 +32,9 @@
       <h2>Single Image Analysis</h2>
       <form id="single-form">
         <input type="file" id="single-file" accept=".jpg,.jpeg,.png" required>
+        <label class="inline-option">
+          <input type="checkbox" id="single-smoothing" checked> Smoothing
+        </label>
         <button type="submit">Process Single</button>
       </form>
       <div id="single-status" class="status"></div>
@@ -45,6 +48,10 @@
         <label class="inline-option">
           <input type="checkbox" id="bulk-previews">
           Include previews
+        </label>
+        <label class="inline-option">
+          <input type="checkbox" id="bulk-smoothing" checked>
+          Smoothing
         </label>
         <button type="submit">Process Batch</button>
       </form>
@@ -83,7 +90,6 @@
     </section>
   </main>
 
-<!-- Adding ?v=4 forces the browser to fetch the newest version. -->
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
