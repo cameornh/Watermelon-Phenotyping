@@ -4,7 +4,7 @@ const SINGLE_REQUEST_TIMEOUT_MS = 120000; // 2 minutes
 const BULK_REQUEST_TIMEOUT_MS = 30000;    // Increased to 30 seconds to prevent premature drops
 const BULK_TIMEOUT_MESSAGE = "Taking longer than 30 seconds. Moving on.";
 
-function processUrl(includeImage) {
+function processUrl(includeImage, applySmoothing) {
     return `${API_URL}?include_image=${includeImage ? "true" : "false"}&apply_smoothing=${applySmoothing ? "true" : "false"}`;
 }
 
