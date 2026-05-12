@@ -283,7 +283,8 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
 
                 // Update Table (No units in columns)
                 tr.innerHTML = `
-                    <td>${escapeHtml(data.filename || files[i].name)}</td>
+                    <td>${escapeHtml(data.filename || files[i].name)}
+                        ${notes ? `<span title="${escapeHtml(notes)}" style="display:inline-block; width:18px; height:18px; background:#ffc107; color:#000; border-radius:50%; text-align:center; line-height:18px; font-weight:bold; cursor:help; margin-left:5px; font-size:12px;">!</span>` : ""}</td>
                     <td>${data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A"}</td>
                     <td>${fmt(w, 1)}</td>
                     <td>${fmt(h, 1)}</td>
@@ -299,7 +300,6 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     <td>${fmt(data.delta_e_initial, 2)}</td>
                     <td>${fmt(data.delta_e_final, 2)}</td>
                     <td>${isNumber(data.processing_ms) ? data.processing_ms : "N/A"}</td>
-                    <td class="notes-cell">${notes ? escapeHtml(notes) : ""}</td>
                     <td>${previewCell(data)}</td>
                 `;
 
@@ -317,14 +317,14 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 globalCsvData.push(csvRow.join(","));
             } else {
                 failureCount++;
-                tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">Error: ${escapeHtml(data.message)}</td>`;
+                tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="16" style="color:red;">Error: ${escapeHtml(data.message)}</td>`;
             }
             tbody.appendChild(tr);
         } catch (err) {
             failureCount++;
             const tr = document.createElement("tr");
             const message = err.message === BULK_TIMEOUT_MESSAGE ? BULK_TIMEOUT_MESSAGE : `Network/API Error: ${err.message}`;
-            tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="18" style="color:red;">${escapeHtml(message)}</td>`;
+            tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="16" style="color:red;">${escapeHtml(message)}</td>`;
             tbody.appendChild(tr);
         }
 
