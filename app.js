@@ -176,7 +176,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
             if (typeof gtag === 'function') {
                 gtag('event', 'processed_single_image', {
                     'event_category': 'Phenotyping',
-                    'success': true
+                    'success': true,
                     'username': currentUsername
                 });
             }
