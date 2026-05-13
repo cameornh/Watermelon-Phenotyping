@@ -285,6 +285,29 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     let failureCount = 0;
     let pixelScaleCount = 0;
 
+    // --- Timer Initialization ---
+    const timerDiv = document.getElementById("batch-timer");
+    timerDiv.style.display = "block";
+    timerDiv.innerText = "Elapsed: 00:00 | ETA: Calculating...";
+    const batchStartTime = Date.now();
+    let timerInterval = setInterval(() => {
+        const elapsedSec = Math.floor((Date.now() - batchStartTime) / 1000);
+        const m = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+        const s = String(elapsedSec % 60).padStart(2, '0');
+        
+        let etaStr = "Calculating...";
+        if (completed > 0 && completed < files.length) {
+            const timePerImg = elapsedSec / completed;
+            const remainingSec = Math.floor(timePerImg * (files.length - completed));
+            const rm = String(Math.floor(remainingSec / 60)).padStart(2, '0');
+            const rs = String(remainingSec % 60).padStart(2, '0');
+            etaStr = `${rm}:${rs}`;
+        }
+        
+        timerDiv.innerText = `Elapsed: ${m}:${s} | ETA: ${etaStr}`;
+    }, 1000);
+    // ---------------------------------
+    
     const batchData = {
         "Width - Raw (cm)":[], "Width - Sm (cm)": [],
         "Height - Raw (cm)":[], "Height - Sm (cm)": [],
@@ -466,6 +489,14 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         }
     }
 
+    // --- Stop the Timer ---
+    clearInterval(timerInterval);
+    const finalElapsed = Math.floor((Date.now() - batchStartTime) / 1000);
+    const fm = String(Math.floor(finalElapsed / 60)).padStart(2, '0');
+    const fs = String(finalElapsed % 60).padStart(2, '0');
+    timerDiv.innerText = `Total Time: ${fm}:${fs}`;
+    // ---------------------------
+    
     const excludedText = pixelScaleCount > 0 ? ` ${pixelScaleCount} pixel-scale row(s) ignored for spatial metrics.` : "";
     status.innerText = `Batch complete: ${successCount} succeeded, ${failureCount} failed, ${completed} attempted.${excludedText}`;
 
