@@ -290,6 +290,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
             if (data.success) {
                 successCount++;
                 const isCm = measurementUnit(data) === "cm";
+                const digits = unit === "cm" ? 2 : 0;
                 const notes = rowNotes(data);
 
                 // Enforce N/A for physical dimensions if ColorChecker failed
