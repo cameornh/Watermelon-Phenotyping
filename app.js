@@ -29,8 +29,8 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
     }
 });
 
-function processUrl(includeImage, applySmoothing) {
-    return `${API_URL}?include_image=${includeImage ? "true" : "false"}&apply_smoothing=${applySmoothing ? "true" : "false"}`;
+function processUrl(includeImage) {
+    return `${API_URL}?include_image=${includeImage ? "true" : "false"}`;
 }
 
 function escapeHtml(value) {
@@ -67,9 +67,9 @@ function rowNotes(data) {
     return notes.join(" | ");
 }
 
-async function postImage(file, includeImage, applySmoothing, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS, maxRetries = 1) {
+async function postImage(file, includeImage, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS, maxRetries = 1) {
     const formData = new FormData();
-    formData.append("password", currentPassword); // Uses the verified password from memory
+    formData.append("password", currentPassword); 
     formData.append("file", file);
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -78,8 +78,7 @@ async function postImage(file, includeImage, applySmoothing, timeoutMs = SINGLE_
 
         try {
             // Strict timeout wrapper
-            // --- CHANGE IS HERE: Passed applySmoothing into processUrl ---
-            const fetchPromise = fetch(processUrl(includeImage, applySmoothing), {
+            const fetchPromise = fetch(processUrl(includeImage), {
                 method: "POST",
                 body: formData,
                 signal: controller.signal
@@ -128,9 +127,9 @@ async function postImage(file, includeImage, applySmoothing, timeoutMs = SINGLE_
     }
 }
 
-async function postBulkImage(file, includeImage, applySmoothing) {
+async function postBulkImage(file, includeImage) {
     // 30 second timeout, 1 automatic retry if the server drops the connection
-    return postImage(file, includeImage, applySmoothing, BULK_REQUEST_TIMEOUT_MS, 1);
+    return postImage(file, includeImage, BULK_REQUEST_TIMEOUT_MS, 1);
 }
 
 function previewCell(data) {
@@ -151,7 +150,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
     resultDiv.innerHTML = "";
 
     try {
-        const data = await postImage(file, true, applySmoothing, SINGLE_REQUEST_TIMEOUT_MS, 0); // No retries for single images
+        const data = await postImage(file, true, SINGLE_REQUEST_TIMEOUT_MS, 0);  // No retries for single images
         
         if (data.success) {
             const unit = measurementUnit(data);
@@ -175,25 +174,51 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                 scaleText = `<p><strong>Scale:</strong> ColorChecker not found; dimensions are original-image pixels.</p>`;
             }
 
-            resultDiv.innerHTML = `
-                <p><strong>R²:</strong> ${data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A (Smoothing Off)"}</p>
-                <p><strong>Width:</strong> ${fmt(data.width_val, digits)} ${escapeHtml(unit)}</p>
-                <p><strong>Height:</strong> ${fmt(data.height_val, digits)} ${escapeHtml(unit)}</p>
-                <p><strong>Perimeter:</strong> ${fmt(data.perimeter_val, digits)} ${escapeHtml(unit)}</p>
-                <p><strong>Rind Thick.:</strong> ${fmt(data.rind_thickness_val, digits)} ${escapeHtml(unit)}</p>
-                <p><strong>Rind Ratio:</strong> ${fmt(data.rind_thickness_ratio, 3)}</p>
-                <p><strong>Total Area:</strong> ${fmt(data.total_area, digits)} ${escapeHtml(aUnit)}</p>
-                <p><strong>Flesh Area:</strong> ${fmt(data.flesh_area, digits)} ${escapeHtml(aUnit)}</p>
-                <p><strong>Flesh / Total:</strong> ${fmt(data.flesh_area_ratio, 3)}</p>
-                <p><strong>Elongation:</strong> ${fmt(data.elongation_factor, 3)}</p>
-                <p><strong>Asymmetry:</strong> ${fmt(data.asymmetry_score, 3)}</p>
-                <p><strong>Flesh Asymmetry:</strong> ${fmt(data.flesh_asymmetry_score, 3)}</p>
-                <p><strong>Midline Curvature:</strong> ${fmt(data.midline_curvature, 4)}</p>
-                <p><strong>Circularity:</strong> ${fmt(data.circularity, 3)}</p>
-                ${scaleText}
-                ${notes ? `<p><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
-                ${isNumber(data.processing_ms) ? `<p><strong>Time:</strong> ${data.processing_ms} ms</p>` : ""}
-                ${data.image_base64 ? `<img src="data:image/jpeg;base64,${data.image_base64}" class="preview-img" style="max-width: 100%; border-radius: 8px; cursor: pointer;">` : ""}
+            rresultDiv.innerHTML = `
+                <div style="display:flex; gap: 20px; text-align: left; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <h3>Raw Features</h3>
+                        <p><strong>Width:</strong> ${fmt(data.raw_width, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Height:</strong> ${fmt(data.raw_height, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Perimeter:</strong> ${fmt(data.raw_perimeter, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Rind Thick.:</strong> ${fmt(data.raw_rind_thick, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Rind Ratio:</strong> ${fmt(data.raw_rind_ratio, 3)}</p>
+                        <p><strong>Total Area:</strong> ${fmt(data.raw_total_area, dig)} ${escapeHtml(aUnit)}</p>
+                        <p><strong>Flesh Area:</strong> ${fmt(data.raw_flesh_area, dig)} ${escapeHtml(aUnit)}</p>
+                        <p><strong>Flesh/Total:</strong> ${fmt(data.raw_flesh_ratio, 3)}</p>
+                        <p><strong>Elongation:</strong> ${fmt(data.raw_elongation, 3)}</p>
+                        <p><strong>Asymmetry:</strong> ${fmt(data.raw_asym, 3)}</p>
+                        <p><strong>Flesh Asym:</strong> ${fmt(data.raw_flesh_asym, 3)}</p>
+                        <p><strong>Circularity:</strong> ${fmt(data.raw_circ, 3)}</p>
+                        <br>
+                        ${data.image_raw_base64 ? `<img src="data:image/jpeg;base64,${data.image_raw_base64}" class="preview-img" style="width:100%; border-radius:8px; cursor:pointer;">` : ""}
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <h3>Smoothed Features</h3>
+                        <p><strong>R² Rind:</strong> ${fmt(data.r2_rind, 4)}</p>
+                        <p><strong>R² Flesh:</strong> ${fmt(data.r2_flesh, 4)}</p>
+                        <p><strong>Width:</strong> ${fmt(data.sm_width, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Height:</strong> ${fmt(data.sm_height, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Perimeter:</strong> ${fmt(data.sm_perimeter, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Rind Thick.:</strong> ${fmt(data.sm_rind_thick, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Rind Ratio:</strong> ${fmt(data.sm_rind_ratio, 3)}</p>
+                        <p><strong>Total Area:</strong> ${fmt(data.sm_total_area, dig)} ${escapeHtml(aUnit)}</p>
+                        <p><strong>Flesh Area:</strong> ${fmt(data.sm_flesh_area, dig)} ${escapeHtml(aUnit)}</p>
+                        <p><strong>Flesh/Total:</strong> ${fmt(data.sm_flesh_ratio, 3)}</p>
+                        <p><strong>Elongation:</strong> ${fmt(data.sm_elongation, 3)}</p>
+                        <p><strong>Asymmetry:</strong> ${fmt(data.sm_asym, 3)}</p>
+                        <p><strong>Flesh Asym:</strong> ${fmt(data.sm_flesh_asym, 3)}</p>
+                        <p><strong>Circularity:</strong> ${fmt(data.sm_circ, 3)}</p>
+                        <br>
+                        ${data.image_sm_base64 ? `<img src="data:image/jpeg;base64,${data.image_sm_base64}" class="preview-img" style="width:100%; border-radius:8px; cursor:pointer;">` : ""}
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <p><strong>Midline Curve:</strong> ${fmt(data.midline_curvature, 4)}</p>
+                    ${scaleText}
+                    ${notes ? `<p><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
+                    ${isNumber(data.processing_ms) ? `<p><strong>Time:</strong> ${data.processing_ms} ms</p>` : ""}
+                </div>
             `;
         } else {
             const notes = rowNotes(data);
@@ -226,10 +251,13 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
 
     // Initialize CSV with Headers
     globalCsvData = [[
-        "Filename", "R²", "Width (cm)", "Height (cm)", "Perimeter (cm)", 
-        "Rind Thick. (cm)", "Rind Ratio", "Total Area (cm²)", "Flesh Area (cm²)",
-        "Flesh Ratio", "Elongation", "Asymmetry", "Flesh Asymmetry", 
-        "Midline Curvature", "Circularity", "Init ΔE", "Final ΔE", "Time (ms)"
+        "Filename", "R² Rind", "R² Flesh", "Width Raw (cm)", "Width Sm (cm)", 
+        "Height Raw (cm)", "Height Sm (cm)", "Perim Raw (cm)", "Perim Sm (cm)", 
+        "RindThk Raw (cm)", "RindThk Sm (cm)", "RindRatio Raw", "RindRatio Sm",
+        "Area Raw (cm²)", "Area Sm (cm²)", "F.Area Raw (cm²)", "F.Area Sm (cm²)",
+        "F.Rat Raw", "F.Rat Sm", "Elong Raw", "Elong Sm", "Asym Raw", "Asym Sm",
+        "F.Asym Raw", "F.Asym Sm", "Circ Raw", "Circ Sm", "Midline Curve",
+        "Init ΔE", "Final ΔE", "Time (ms)"
     ].join(",")];
 
     let completed = 0;
@@ -238,22 +266,20 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     let pixelScaleCount = 0;
 
     const batchData = {
-        "R² Score": [],
-        "Width (cm)":[],
-        "Height (cm)": [],
-        "Perimeter (cm)":[],
-        "Rind Thick. (cm)": [],
-        "Rind Ratio":[],
-        "Total Area (cm²)": [],
-        "Flesh Area (cm²)":[],
-        "Flesh / Total Ratio": [],
-        "Elongation Factor": [],
-        "Circularity":[],
-        "Asymmetry": [],
-        "Flesh Asymmetry": [],
-        "Midline Curvature":[],
-        "Initial ΔE": [],
-        "Final ΔE":[]
+        "Width - Raw (cm)":[], "Width - Sm (cm)": [],
+        "Height - Raw (cm)":[], "Height - Sm (cm)": [],
+        "Perim - Raw (cm)":[], "Perim - Sm (cm)": [],
+        "Rind Thick - Raw (cm)":[], "Rind Thick - Sm (cm)": [],
+        "Rind Ratio - Raw": [], "Rind Ratio - Sm":[],
+        "Total Area - Raw (cm²)": [], "Total Area - Sm (cm²)":[],
+        "Flesh Area - Raw (cm²)": [], "Flesh Area - Sm (cm²)":[],
+        "Flesh Ratio - Raw": [], "Flesh Ratio - Sm": [],
+        "Elongation - Raw":[], "Elongation - Sm": [],
+        "Asymmetry - Raw": [], "Asymmetry - Sm":[],
+        "Flesh Asym - Raw": [], "Flesh Asym - Sm":[],
+        "Circularity - Raw": [], "Circularity - Sm": [],
+        "Midline Curve": [], "R² Rind":[], "R² Flesh": [],
+        "Initial ΔE": [], "Final ΔE":[]
     };
 
     for (let i = 0; i < files.length; i++) {
@@ -269,67 +295,101 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 const notes = rowNotes(data);
 
                 // Enforce N/A for physical dimensions if ColorChecker failed
-                let w = isCm ? data.width_val : null;
-                let h = isCm ? data.height_val : null;
-                let p = isCm ? data.perimeter_val : null;
-                let ta = isCm ? data.total_area : null;
-                let fa = isCm ? data.flesh_area : null;
-                let rt = isCm ? data.rind_thickness_val : null;
-
+                let rw=isCm?data.raw_width:null, sw=isCm?data.sm_width:null;
+                let rh=isCm?data.raw_height:null, sh=isCm?data.sm_height:null;
+                let rp=isCm?data.raw_perimeter:null, sp=isCm?data.sm_perimeter:null;
+                let rrt=isCm?data.raw_rind_thick:null, srt=isCm?data.sm_rind_thick:null;
+                let ra=isCm?data.raw_total_area:null, sa=isCm?data.sm_total_area:null;
+                let rfa=isCm?data.raw_flesh_area:null, sfa=isCm?data.sm_flesh_area:null;
                 if (!isCm) pixelScaleCount++;
 
-                // Histogram data collection
-                if (isNumber(data.r2_score)) batchData["R² Score"].push(data.r2_score);
-                if (isNumber(w)) batchData["Width (cm)"].push(w);
-                if (isNumber(h)) batchData["Height (cm)"].push(h);
-                if (isNumber(p)) batchData["Perimeter (cm)"].push(p);
-                if (isNumber(rt)) batchData["Rind Thick. (cm)"].push(rt);
-                if (isNumber(ta)) batchData["Total Area (cm²)"].push(ta);
-                if (isNumber(fa)) batchData["Flesh Area (cm²)"].push(fa);
-                if (isNumber(data.flesh_area_ratio)) batchData["Flesh / Total Ratio"].push(data.flesh_area_ratio);
-                if (isNumber(data.rind_thickness_ratio)) batchData["Rind Ratio"].push(data.rind_thickness_ratio);
-                if (isNumber(data.elongation_factor)) batchData["Elongation Factor"].push(data.elongation_factor);
-                if (isNumber(data.circularity)) batchData["Circularity"].push(data.circularity);
-                if (isNumber(data.asymmetry_score)) batchData["Asymmetry"].push(data.asymmetry_score);
-                if (isNumber(data.flesh_asymmetry_score)) batchData["Flesh Asymmetry"].push(data.flesh_asymmetry_score);
-                if (isNumber(data.midline_curvature)) batchData["Midline Curvature"].push(data.midline_curvature);
-                if (isNumber(data.delta_e_initial)) batchData["Initial ΔE"].push(data.delta_e_initial);
-                if (isNumber(data.delta_e_final)) batchData["Final ΔE"].push(data.delta_e_final);
+                // Collect Histograms
+                if(isNumber(rw)) batchData["Width - Raw (cm)"].push(rw);
+                if(isNumber(sw)) batchData["Width - Sm (cm)"].push(sw);
+                if(isNumber(rh)) batchData["Height - Raw (cm)"].push(rh);
+                if(isNumber(sh)) batchData["Height - Sm (cm)"].push(sh);
+                if(isNumber(rp)) batchData["Perim - Raw (cm)"].push(rp);
+                if(isNumber(sp)) batchData["Perim - Sm (cm)"].push(sp);
+                if(isNumber(rrt)) batchData["Rind Thick - Raw (cm)"].push(rrt);
+                if(isNumber(srt)) batchData["Rind Thick - Sm (cm)"].push(srt);
+                if(isNumber(data.raw_rind_ratio)) batchData["Rind Ratio - Raw"].push(data.raw_rind_ratio);
+                if(isNumber(data.sm_rind_ratio)) batchData["Rind Ratio - Sm"].push(data.sm_rind_ratio);
+                if(isNumber(ra)) batchData["Total Area - Raw (cm²)"].push(ra);
+                if(isNumber(sa)) batchData["Total Area - Sm (cm²)"].push(sa);
+                if(isNumber(rfa)) batchData["Flesh Area - Raw (cm²)"].push(rfa);
+                if(isNumber(sfa)) batchData["Flesh Area - Sm (cm²)"].push(sfa);
+                if(isNumber(data.raw_flesh_ratio)) batchData["Flesh Ratio - Raw"].push(data.raw_flesh_ratio);
+                if(isNumber(data.sm_flesh_ratio)) batchData["Flesh Ratio - Sm"].push(data.sm_flesh_ratio);
+                if(isNumber(data.raw_elongation)) batchData["Elongation - Raw"].push(data.raw_elongation);
+                if(isNumber(data.sm_elongation)) batchData["Elongation - Sm"].push(data.sm_elongation);
+                if(isNumber(data.raw_asym)) batchData["Asymmetry - Raw"].push(data.raw_asym);
+                if(isNumber(data.sm_asym)) batchData["Asymmetry - Sm"].push(data.sm_asym);
+                if(isNumber(data.raw_flesh_asym)) batchData["Flesh Asym - Raw"].push(data.raw_flesh_asym);
+                if(isNumber(data.sm_flesh_asym)) batchData["Flesh Asym - Sm"].push(data.sm_flesh_asym);
+                if(isNumber(data.raw_circ)) batchData["Circularity - Raw"].push(data.raw_circ);
+                if(isNumber(data.sm_circ)) batchData["Circularity - Sm"].push(data.sm_circ);
+                if(isNumber(data.midline_curvature)) batchData["Midline Curve"].push(data.midline_curvature);
+                if(isNumber(data.r2_rind)) batchData["R² Rind"].push(data.r2_rind);
+                if(isNumber(data.r2_flesh)) batchData["R² Flesh"].push(data.r2_flesh);
+                if(isNumber(data.delta_e_initial)) batchData["Initial ΔE"].push(data.delta_e_initial);
+                if(isNumber(data.delta_e_final)) batchData["Final ΔE"].push(data.delta_e_final);
 
-                // Update Table (No units in columns)
+                // HTML Row
                 tr.innerHTML = `
                     <td>${escapeHtml(data.filename || files[i].name)}
-                        ${notes ? `<span title="${escapeHtml(notes)}" style="display:inline-block; width:18px; height:18px; background:#ffc107; color:#000; border-radius:50%; text-align:center; line-height:18px; font-weight:bold; cursor:help; margin-left:5px; font-size:12px;">!</span>` : ""}</td>
-                    <td>${data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A"}</td>
-                    <td>${fmt(w, 1)}</td>
-                    <td>${fmt(h, 1)}</td>
-                    <td>${fmt(p, 1)}</td>
-                    <td>${fmt(rt, 1)}</td>
-                    <td>${fmt(data.rind_thickness_ratio, 3)}</td>
-                    <td>${fmt(ta, 1)}</td>
-                    <td>${fmt(fa, 1)}</td>
-                    <td>${fmt(data.flesh_area_ratio, 3)}</td>
-                    <td>${fmt(data.elongation_factor, 3)}</td>
-                    <td>${fmt(data.asymmetry_score, 3)}</td>
-                    <td>${fmt(data.flesh_asymmetry_score, 3)}</td>
+                        ${notes ? `<span title="${escapeHtml(notes)}" style="display:inline-block; width:18px; height:18px; background:#ffc107; color:#000; border-radius:50%; text-align:center; line-height:18px; font-weight:bold; cursor:help; margin-left:5px; font-size:12px;">!</span>` : ""}
+                    </td>
+                    <td>${fmt(data.r2_rind, 4)}</td>
+                    <td>${fmt(data.r2_flesh, 4)}</td>
+                    <td>${fmt(rw, digits)}</td>
+                    <td>${fmt(sw, digits)}</td>
+                    <td>${fmt(rh, digits)}</td>
+                    <td>${fmt(sh, digits)}</td>
+                    <td>${fmt(rp, digits)}</td>
+                    <td>${fmt(sp, digits)}</td>
+                    <td>${fmt(rrt, digits)}</td>
+                    <td>${fmt(srt, digits)}</td>
+                    <td>${fmt(data.raw_rind_ratio, 3)}</td>
+                    <td>${fmt(data.sm_rind_ratio, 3)}</td>
+                    <td>${fmt(ra, digits)}</td>
+                    <td>${fmt(sa, digits)}</td>
+                    <td>${fmt(rfa, digits)}</td>
+                    <td>${fmt(sfa, digits)}</td>
+                    <td>${fmt(data.raw_flesh_ratio, 3)}</td>
+                    <td>${fmt(data.sm_flesh_ratio, 3)}</td>
+                    <td>${fmt(data.raw_elongation, 3)}</td>
+                    <td>${fmt(data.sm_elongation, 3)}</td>
+                    <td>${fmt(data.raw_asym, 3)}</td>
+                    <td>${fmt(data.sm_asym, 3)}</td>
+                    <td>${fmt(data.raw_flesh_asym, 3)}</td>
+                    <td>${fmt(data.sm_flesh_asym, 3)}</td>
+                    <td>${fmt(data.raw_circ, 3)}</td>
+                    <td>${fmt(data.sm_circ, 3)}</td>
                     <td>${fmt(data.midline_curvature, 4)}</td>
-                    <td>${fmt(data.circularity, 3)}</td>
                     <td>${fmt(data.delta_e_initial, 2)}</td>
                     <td>${fmt(data.delta_e_final, 2)}</td>
                     <td>${isNumber(data.processing_ms) ? data.processing_ms : "N/A"}</td>
-                    <td>${previewCell(data)}</td>
+                    <td>${data.image_raw_base64 ? `<img src="data:image/jpeg;base64,${data.image_raw_base64}" class="thumb preview-img">` : `<span class="muted">-</span>`}</td>
+                    <td>${data.image_sm_base64 ? `<img src="data:image/jpeg;base64,${data.image_sm_base64}" class="thumb preview-img">` : `<span class="muted">-</span>`}</td>
                 `;
 
-                // Update CSV
+                // CSV
                 const csvRow = [
                     `"${data.filename || files[i].name}"`,
-                    data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A",
-                    fmt(w, 1), fmt(h, 1), fmt(p, 1), 
-                    fmt(rt, 1), fmt(data.rind_thickness_ratio, 3), 
-                    fmt(ta, 1), fmt(fa, 1),
-                    fmt(data.flesh_area_ratio, 3), fmt(data.elongation_factor, 3),
-                    fmt(data.asymmetry_score, 3), fmt(data.flesh_asymmetry_score, 3),
-                    fmt(data.midline_curvature, 4), fmt(data.circularity, 3),
+                    fmt(data.r2_rind, 4), fmt(data.r2_flesh, 4),
+                    fmt(rw, digits), fmt(sw, digits),
+                    fmt(rh, digits), fmt(sh, digits),
+                    fmt(rp, digits), fmt(sp, digits),
+                    fmt(rrt, digits), fmt(srt, digits),
+                    fmt(data.raw_rind_ratio, 3), fmt(data.sm_rind_ratio, 3),
+                    fmt(ra, digits), fmt(sa, digits),
+                    fmt(rfa, digits), fmt(sfa, digits),
+                    fmt(data.raw_flesh_ratio, 3), fmt(data.sm_flesh_ratio, 3),
+                    fmt(data.raw_elongation, 3), fmt(data.sm_elongation, 3),
+                    fmt(data.raw_asym, 3), fmt(data.sm_asym, 3),
+                    fmt(data.raw_flesh_asym, 3), fmt(data.sm_flesh_asym, 3),
+                    fmt(data.raw_circ, 3), fmt(data.sm_circ, 3),
+                    fmt(data.midline_curvature, 4),
                     fmt(data.delta_e_initial, 2), fmt(data.delta_e_final, 2),
                     isNumber(data.processing_ms) ? data.processing_ms : "N/A"
                 ];
