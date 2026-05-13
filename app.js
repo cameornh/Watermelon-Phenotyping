@@ -173,7 +173,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                 scaleText = `<p><strong>Scale:</strong> ColorChecker not found; dimensions are original-image pixels.</p>`;
             }
 
-            rresultDiv.innerHTML = `
+            resultDiv.innerHTML = `
                 <div style="display:flex; gap: 20px; text-align: left; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 200px;">
                         <h3>Raw Features</h3>
