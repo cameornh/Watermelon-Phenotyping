@@ -142,7 +142,6 @@ function previewCell(data) {
 document.getElementById("single-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const file = document.getElementById("single-file").files[0];
-    const applySmoothing = document.getElementById("single-smoothing").checked;
     const status = document.getElementById("single-status");
     const resultDiv = document.getElementById("single-result");
 
@@ -236,7 +235,6 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const files = document.getElementById("bulk-files").files;
     const includeImages = document.getElementById("bulk-previews") ? document.getElementById("bulk-previews").checked : true;
-    const applySmoothing = document.getElementById("bulk-smoothing").checked;
     const status = document.getElementById("bulk-status");
     const table = document.getElementById("bulk-table");
     const tbody = table.querySelector("tbody");
@@ -286,7 +284,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         status.innerText = `Processing image ${i + 1} of ${files.length}...`;
 
         try {
-            const data = await postBulkImage(files[i], includeImages, applySmoothing);
+            const data = await postBulkImage(files[i], includeImages);
             const tr = document.createElement("tr");
 
             if (data.success) {
