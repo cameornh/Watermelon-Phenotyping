@@ -35,6 +35,10 @@
     .table-wrap { width: 100%; overflow-x: auto; margin-top: 20px; padding-bottom: 6px; }
     #download-csv-btn { display: none; margin-top: 15px; margin-bottom: 10px; padding: 10px 15px; font-weight: bold; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
     #download-csv-btn:hover { background: #0056b3; }
+    .lightbox-overlay { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.85); justify-content: center; align-items: center; }
+    .lightbox-content { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    .lightbox-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; user-select: none; }
+    .lightbox-close:hover { color: #ddd; }
   </style>
 </head>
 <body>
@@ -118,7 +122,12 @@
     </section>
   </main>
 
-<!-- Adding ?v=4 forces the browser to fetch the newest version. -->
+  <div id="lightbox" class="lightbox-overlay">
+    <span class="lightbox-close" id="lightbox-close">&times;</span>
+    <img class="lightbox-content" id="lightbox-img">
+  </div>
+  
+  <!-- Adding ?v=4 forces the browser to fetch the newest version. -->
   <script src="app.js?v=4"></script>
 </body>
 </html>
