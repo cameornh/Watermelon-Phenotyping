@@ -441,7 +441,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     gtag('event', 'processed_single_image', {
                         'event_category': 'Phenotyping',
                         'success': true,
-                        'is_bulk': true
+                        'is_bulk': true,
                         'username': currentUsername
                     });
                 }
