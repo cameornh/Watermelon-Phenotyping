@@ -6,6 +6,7 @@ const BULK_TIMEOUT_MESSAGE = "Taking longer than 30 seconds. Moving on.";
 const TARGET_HASH = "9139eb3676d5dfafced7613f044d86d9e7c84f40a04c83ddce062878621315d0";
 
 let currentPassword = ""; // Stores the password in memory after a successful login
+let currentUsername = ""; // Stores user identity
 
 async function sha256(message) {
     const msgBuffer = new TextEncoder().encode(message);
@@ -18,12 +19,24 @@ async function sha256(message) {
 document.getElementById("login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const pwd = document.getElementById("login-password").value;
+    const uname = document.getElementById("login-name").value.trim();
     const errorDiv = document.getElementById("login-error");
     
     if (await sha256(pwd) === TARGET_HASH) {
         currentPassword = pwd;
+        currentUsername = uname;
         document.getElementById("login-view").style.display = "none";
         document.getElementById("app-view").style.display = "block";
+
+        // Track unique login name
+        if (typeof gtag === 'function') {
+            gtag('event', 'user_login', {
+                'event_category': 'Authentication',
+                'username': currentUsername
+            });
+        }
+        
+        startQueuePolling(); // Boot up the live dashboard
     } else {
         errorDiv.innerText = "Incorrect password.";
     }
@@ -69,7 +82,8 @@ function rowNotes(data) {
 
 async function postImage(file, includeImage, timeoutMs = SINGLE_REQUEST_TIMEOUT_MS, maxRetries = 1) {
     const formData = new FormData();
-    formData.append("password", currentPassword); 
+    formData.append("password", currentPassword);
+    formData.append("username", currentUsername); 
     formData.append("file", file);
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -163,6 +177,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                 gtag('event', 'processed_single_image', {
                     'event_category': 'Phenotyping',
                     'success': true
+                    'username': currentUsername
                 });
             }
 
@@ -427,6 +442,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                         'event_category': 'Phenotyping',
                         'success': true,
                         'is_bulk': true
+                        'username': currentUsername
                     });
                 }
             } else {
@@ -622,3 +638,34 @@ lightbox.addEventListener("click", (e) => {
         lightboxImg.src = "";
     }
 });
+
+// --- LIVE QUEUE POLLING ---
+function startQueuePolling() {
+    const statusEndpoint = API_URL.replace("/process_single", "/queue_status");
+    
+    setInterval(async () => {
+        try {
+            const res = await fetch(statusEndpoint);
+            const data = await res.json();
+            
+            const statusDiv = document.getElementById("server-status");
+            const isDev = currentUsername.toLowerCase() === 'devtest';
+            
+            // Route to correct queue
+            let myQueue = isDev ? data.dev_queue : data.gen_queue;
+            let coreName = isDev ? "Reserved 'devtest' Core" : "General Core";
+            
+            if (myQueue === 0) {
+                statusDiv.innerHTML = `🟢 Server Ready | <strong>${coreName}</strong>.`;
+                statusDiv.style.color = "#155724";
+                statusDiv.style.backgroundColor = "#d4edda";
+            } else {
+                statusDiv.innerHTML = `Processing | <strong>${myQueue}</strong> request(s) in <strong>${coreName}</strong> queue.`;
+                statusDiv.style.color = "#856404";
+                statusDiv.style.backgroundColor = "#fff3cd";
+            }
+        } catch (err) {
+            // Silently ignore network blips during polling
+        }
+    }, 2000); // Check every 2 seconds
+}
