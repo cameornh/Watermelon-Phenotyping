@@ -135,7 +135,7 @@ async function postBulkImage(file, includeImage, applySmoothing) {
 
 function previewCell(data) {
     if (data.image_base64) {
-        return `<img src="data:image/jpeg;base64,${data.image_base64}" class="thumb" onclick="window.open(this.src)">`;
+        return `<img src="data:image/jpeg;base64,${data.image_base64}" class="thumb preview-img">`;
     }
     return `<span class="muted">Disabled</span>`;
 }
@@ -191,7 +191,7 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                 ${scaleText}
                 ${notes ? `<p><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
                 ${isNumber(data.processing_ms) ? `<p><strong>Time:</strong> ${data.processing_ms} ms</p>` : ""}
-                ${data.image_base64 ? `<img src="data:image/jpeg;base64,${data.image_base64}" style="max-width: 100%; border-radius: 8px;">` : ""}
+                ${data.image_base64 ? `<img src="data:image/jpeg;base64,${data.image_base64}" class="preview-img" style="max-width: 100%; border-radius: 8px; cursor: pointer;">` : ""}
             `;
         } else {
             const notes = rowNotes(data);
@@ -488,4 +488,31 @@ document.getElementById("download-csv-btn").addEventListener("click", () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+});
+
+// --- LIGHTBOX HANDLER ---
+const lightbox = document.getElementById("lightbox");
+const lightboxImg = document.getElementById("lightbox-img");
+const lightboxClose = document.getElementById("lightbox-close");
+
+// Listen for clicks on ANY image with the 'preview-img' class
+document.body.addEventListener("click", (e) => {
+    if (e.target && e.target.classList.contains("preview-img")) {
+        lightbox.style.display = "flex";
+        lightboxImg.src = e.target.src;
+    }
+});
+
+// Close when clicking the X
+lightboxClose.addEventListener("click", () => {
+    lightbox.style.display = "none";
+    lightboxImg.src = "";
+});
+
+// Close when clicking the dark background outside the image
+lightbox.addEventListener("click", (e) => {
+    if (e.target === lightbox) {
+        lightbox.style.display = "none";
+        lightboxImg.src = "";
+    }
 });
