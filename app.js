@@ -180,6 +180,8 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                 <p><strong>Width:</strong> ${fmt(data.width_val, digits)} ${escapeHtml(unit)}</p>
                 <p><strong>Height:</strong> ${fmt(data.height_val, digits)} ${escapeHtml(unit)}</p>
                 <p><strong>Perimeter:</strong> ${fmt(data.perimeter_val, digits)} ${escapeHtml(unit)}</p>
+                <p><strong>Rind Thick.:</strong> ${fmt(data.rind_thickness_val, digits)} ${escapeHtml(unit)}</p>
+                <p><strong>Rind Ratio:</strong> ${fmt(data.rind_thickness_ratio, 3)}</p>
                 <p><strong>Total Area:</strong> ${fmt(data.total_area, digits)} ${escapeHtml(aUnit)}</p>
                 <p><strong>Flesh Area:</strong> ${fmt(data.flesh_area, digits)} ${escapeHtml(aUnit)}</p>
                 <p><strong>Flesh / Total:</strong> ${fmt(data.flesh_area_ratio, 3)}</p>
@@ -225,9 +227,9 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     // Initialize CSV with Headers
     globalCsvData = [[
         "Filename", "R²", "Width (cm)", "Height (cm)", "Perimeter (cm)", 
-        "Total Area (cm²)", "Flesh Area (cm²)", "Flesh Ratio", "Elongation", 
-        "Asymmetry", "Flesh Asymmetry", "Midline Curvature", "Circularity", 
-        "Init ΔE", "Final ΔE", "Time (ms)"
+        "Rind Thick. (cm)", "Rind Ratio", "Total Area (cm²)", "Flesh Area (cm²)",
+        "Flesh Ratio", "Elongation", "Asymmetry", "Flesh Asymmetry", 
+        "Midline Curvature", "Circularity", "Init ΔE", "Final ΔE", "Time (ms)"
     ].join(",")];
 
     let completed = 0;
@@ -240,6 +242,8 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         "Width (cm)":[],
         "Height (cm)": [],
         "Perimeter (cm)":[],
+        "Rind Thick. (cm)": [],
+        "Rind Ratio":[],
         "Total Area (cm²)": [],
         "Flesh Area (cm²)":[],
         "Flesh / Total Ratio": [],
@@ -270,6 +274,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 let p = isCm ? data.perimeter_val : null;
                 let ta = isCm ? data.total_area : null;
                 let fa = isCm ? data.flesh_area : null;
+                let rt = isCm ? data.rind_thickness_val : null;
 
                 if (!isCm) pixelScaleCount++;
 
@@ -278,9 +283,11 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 if (isNumber(w)) batchData["Width (cm)"].push(w);
                 if (isNumber(h)) batchData["Height (cm)"].push(h);
                 if (isNumber(p)) batchData["Perimeter (cm)"].push(p);
+                if (isNumber(rt)) batchData["Rind Thick. (cm)"].push(rt);
                 if (isNumber(ta)) batchData["Total Area (cm²)"].push(ta);
                 if (isNumber(fa)) batchData["Flesh Area (cm²)"].push(fa);
                 if (isNumber(data.flesh_area_ratio)) batchData["Flesh / Total Ratio"].push(data.flesh_area_ratio);
+                if (isNumber(data.rind_thickness_ratio)) batchData["Rind Ratio"].push(data.rind_thickness_ratio);
                 if (isNumber(data.elongation_factor)) batchData["Elongation Factor"].push(data.elongation_factor);
                 if (isNumber(data.circularity)) batchData["Circularity"].push(data.circularity);
                 if (isNumber(data.asymmetry_score)) batchData["Asymmetry"].push(data.asymmetry_score);
@@ -297,6 +304,8 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     <td>${fmt(w, 1)}</td>
                     <td>${fmt(h, 1)}</td>
                     <td>${fmt(p, 1)}</td>
+                    <td>${fmt(rt, digits)}</td>
+                    <td>${fmt(data.rind_thickness_ratio, 3)}</td>
                     <td>${fmt(ta, 1)}</td>
                     <td>${fmt(fa, 1)}</td>
                     <td>${fmt(data.flesh_area_ratio, 3)}</td>
@@ -315,7 +324,9 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 const csvRow = [
                     `"${data.filename || files[i].name}"`,
                     data.r2_score !== null ? fmt(data.r2_score, 4) : "N/A",
-                    fmt(w, 1), fmt(h, 1), fmt(p, 1), fmt(ta, 1), fmt(fa, 1),
+                    fmt(w, 1), fmt(h, 1), fmt(p, 1), 
+                    fmt(rt, 1), fmt(data.rind_thickness_ratio, 3), 
+                    fmt(ta, 1), fmt(fa, 1),
                     fmt(data.flesh_area_ratio, 3), fmt(data.elongation_factor, 3),
                     fmt(data.asymmetry_score, 3), fmt(data.flesh_asymmetry_score, 3),
                     fmt(data.midline_curvature, 4), fmt(data.circularity, 3),
