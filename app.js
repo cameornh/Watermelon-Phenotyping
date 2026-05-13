@@ -180,6 +180,9 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                         <p><strong>Width:</strong> ${fmt(data.raw_width, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Height:</strong> ${fmt(data.raw_height, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Perimeter:</strong> ${fmt(data.raw_perimeter, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Width:</strong> ${fmt(data.raw_flesh_width, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Height:</strong> ${fmt(data.raw_flesh_height, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Perim:</strong> ${fmt(data.raw_flesh_perimeter, dig)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Thick.:</strong> ${fmt(data.raw_rind_thick, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Ratio:</strong> ${fmt(data.raw_rind_ratio, 3)}</p>
                         <p><strong>Total Area:</strong> ${fmt(data.raw_total_area, digits)} ${escapeHtml(aUnit)}</p>
@@ -199,6 +202,9 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                         <p><strong>Width:</strong> ${fmt(data.sm_width, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Height:</strong> ${fmt(data.sm_height, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Perimeter:</strong> ${fmt(data.sm_perimeter, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Width:</strong> ${fmt(data.sm_flesh_width, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Height:</strong> ${fmt(data.sm_flesh_height, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Perim:</strong> ${fmt(data.sm_flesh_perimeter, dig)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Thick.:</strong> ${fmt(data.sm_rind_thick, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Ratio:</strong> ${fmt(data.sm_rind_ratio, 3)}</p>
                         <p><strong>Total Area:</strong> ${fmt(data.sm_total_area, digits)} ${escapeHtml(aUnit)}</p>
@@ -251,11 +257,12 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
     globalCsvData = [[
         "Filename", "R² Rind", "R² Flesh", "Width Raw (cm)", "Width Sm (cm)", 
         "Height Raw (cm)", "Height Sm (cm)", "Perim Raw (cm)", "Perim Sm (cm)", 
-        "RindThk Raw (cm)", "RindThk Sm (cm)", "RindRatio Raw", "RindRatio Sm",
-        "Area Raw (cm²)", "Area Sm (cm²)", "F.Area Raw (cm²)", "F.Area Sm (cm²)",
-        "F.Rat Raw", "F.Rat Sm", "Elong Raw", "Elong Sm", "Asym Raw", "Asym Sm",
-        "F.Asym Raw", "F.Asym Sm", "Circ Raw", "Circ Sm", "Midline Curve",
-        "Init ΔE", "Final ΔE", "Time (ms)"
+        "F.Width Raw (cm)", "F.Width Sm (cm)", "F.Height Raw (cm)", "F.Height Sm (cm)", 
+        "F.Perim Raw (cm)", "F.Perim Sm (cm)", "RindThk Raw (cm)", "RindThk Sm (cm)", 
+        "RindRatio Raw", "RindRatio Sm", "Area Raw (cm²)", "Area Sm (cm²)", 
+        "F.Area Raw (cm²)", "F.Area Sm (cm²)", "F.Ratio Raw", "F.Ratio Sm", 
+        "Elong Raw", "Elong Sm", "Asym Raw", "Asym Sm", "F.Asym Raw", "F.Asym Sm", 
+        "Circ Raw", "Circ Sm", "Midline Curve", "Init ΔE", "Final ΔE", "Time (ms)"
     ].join(",")];
 
     let completed = 0;
@@ -267,6 +274,9 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
         "Width - Raw (cm)":[], "Width - Sm (cm)": [],
         "Height - Raw (cm)":[], "Height - Sm (cm)": [],
         "Perim - Raw (cm)":[], "Perim - Sm (cm)": [],
+        "F.Width - Raw (cm)":[], "F.Width - Sm (cm)": [],
+        "F.Height - Raw (cm)":[], "F.Height - Sm (cm)": [],
+        "F.Perim - Raw (cm)":[], "F.Perim - Sm (cm)": [],
         "Rind Thick - Raw (cm)":[], "Rind Thick - Sm (cm)": [],
         "Rind Ratio - Raw": [], "Rind Ratio - Sm":[],
         "Total Area - Raw (cm²)": [], "Total Area - Sm (cm²)":[],
@@ -297,6 +307,9 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 let rw=isCm?data.raw_width:null, sw=isCm?data.sm_width:null;
                 let rh=isCm?data.raw_height:null, sh=isCm?data.sm_height:null;
                 let rp=isCm?data.raw_perimeter:null, sp=isCm?data.sm_perimeter:null;
+                let rfw=isCm?data.raw_flesh_width:null, sfw=isCm?data.sm_flesh_width:null;
+                let rfh=isCm?data.raw_flesh_height:null, sfh=isCm?data.sm_flesh_height:null;
+                let rfp=isCm?data.raw_flesh_perimeter:null, sfp=isCm?data.sm_flesh_perimeter:null;
                 let rrt=isCm?data.raw_rind_thick:null, srt=isCm?data.sm_rind_thick:null;
                 let ra=isCm?data.raw_total_area:null, sa=isCm?data.sm_total_area:null;
                 let rfa=isCm?data.raw_flesh_area:null, sfa=isCm?data.sm_flesh_area:null;
@@ -309,6 +322,12 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 if(isNumber(sh)) batchData["Height - Sm (cm)"].push(sh);
                 if(isNumber(rp)) batchData["Perim - Raw (cm)"].push(rp);
                 if(isNumber(sp)) batchData["Perim - Sm (cm)"].push(sp);
+                if(isNumber(rfw)) batchData["F.Width - Raw (cm)"].push(rfw);
+                if(isNumber(sfw)) batchData["F.Width - Sm (cm)"].push(sfw);
+                if(isNumber(rfh)) batchData["F.Height - Raw (cm)"].push(rfh);
+                if(isNumber(sfh)) batchData["F.Height - Sm (cm)"].push(sfh);
+                if(isNumber(rfp)) batchData["F.Perim - Raw (cm)"].push(rfp);
+                if(isNumber(sfp)) batchData["F.Perim - Sm (cm)"].push(sfp);
                 if(isNumber(rrt)) batchData["Rind Thick - Raw (cm)"].push(rrt);
                 if(isNumber(srt)) batchData["Rind Thick - Sm (cm)"].push(srt);
                 if(isNumber(data.raw_rind_ratio)) batchData["Rind Ratio - Raw"].push(data.raw_rind_ratio);
@@ -346,6 +365,12 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     <td>${fmt(sh, digits)}</td>
                     <td>${fmt(rp, digits)}</td>
                     <td>${fmt(sp, digits)}</td>
+                    <td>${fmt(rfw, digits)}</td>
+                    <td>${fmt(sfw, digits)}</td>
+                    <td>${fmt(rfh, digits)}</td>
+                    <td>${fmt(sfh, digits)}</td>
+                    <td>${fmt(rfp, digits)}</td>
+                    <td>${fmt(sfp, digits)}</td>
                     <td>${fmt(rrt, digits)}</td>
                     <td>${fmt(srt, digits)}</td>
                     <td>${fmt(data.raw_rind_ratio, 3)}</td>
@@ -379,6 +404,9 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     fmt(rw, digits), fmt(sw, digits),
                     fmt(rh, digits), fmt(sh, digits),
                     fmt(rp, digits), fmt(sp, digits),
+                    fmt(rfw, digits), fmt(sfw, digits),
+                    fmt(rfh, digits), fmt(sfh, digits),
+                    fmt(rfp, digits), fmt(sfp, digits),
                     fmt(rrt, digits), fmt(srt, digits),
                     fmt(data.raw_rind_ratio, 3), fmt(data.sm_rind_ratio, 3),
                     fmt(ra, digits), fmt(sa, digits),
@@ -393,6 +421,14 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     isNumber(data.processing_ms) ? data.processing_ms : "N/A"
                 ];
                 globalCsvData.push(csvRow.join(","));
+                // --- Track each individual image from the batch in Google Analytics ---
+                if (typeof gtag === 'function') {
+                    gtag('event', 'processed_single_image', {
+                        'event_category': 'Phenotyping',
+                        'success': true,
+                        'is_bulk': true
+                    });
+                }
             } else {
                 failureCount++;
                 tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="16" style="color:red;">Error: ${escapeHtml(data.message)}</td>`;
