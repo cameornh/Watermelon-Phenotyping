@@ -656,7 +656,7 @@ function startQueuePolling() {
             let coreName = isDev ? "Reserved 'devtest' Core" : "General Core";
             
             if (myQueue === 0) {
-                statusDiv.innerHTML = `🟢 Server Ready | <strong>${coreName}</strong>.`;
+                statusDiv.innerHTML = `Server Ready | <strong>${coreName}</strong>.`;
                 statusDiv.style.color = "#155724";
                 statusDiv.style.backgroundColor = "#d4edda";
             } else {
