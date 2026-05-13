@@ -177,13 +177,13 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                 <div style="display:flex; gap: 20px; text-align: left; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 200px;">
                         <h3>Raw Features</h3>
-                        <p><strong>Width:</strong> ${fmt(data.raw_width, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>Height:</strong> ${fmt(data.raw_height, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>Perimeter:</strong> ${fmt(data.raw_perimeter, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>Rind Thick.:</strong> ${fmt(data.raw_rind_thick, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Width:</strong> ${fmt(data.raw_width, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>Height:</strong> ${fmt(data.raw_height, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>Perimeter:</strong> ${fmt(data.raw_perimeter, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>Rind Thick.:</strong> ${fmt(data.raw_rind_thick, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Ratio:</strong> ${fmt(data.raw_rind_ratio, 3)}</p>
-                        <p><strong>Total Area:</strong> ${fmt(data.raw_total_area, dig)} ${escapeHtml(aUnit)}</p>
-                        <p><strong>Flesh Area:</strong> ${fmt(data.raw_flesh_area, dig)} ${escapeHtml(aUnit)}</p>
+                        <p><strong>Total Area:</strong> ${fmt(data.raw_total_area, digits)} ${escapeHtml(aUnit)}</p>
+                        <p><strong>Flesh Area:</strong> ${fmt(data.raw_flesh_area, digits)} ${escapeHtml(aUnit)}</p>
                         <p><strong>Flesh/Total:</strong> ${fmt(data.raw_flesh_ratio, 3)}</p>
                         <p><strong>Elongation:</strong> ${fmt(data.raw_elongation, 3)}</p>
                         <p><strong>Asymmetry:</strong> ${fmt(data.raw_asym, 3)}</p>
@@ -196,13 +196,13 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                         <h3>Smoothed Features</h3>
                         <p><strong>R² Rind:</strong> ${fmt(data.r2_rind, 4)}</p>
                         <p><strong>R² Flesh:</strong> ${fmt(data.r2_flesh, 4)}</p>
-                        <p><strong>Width:</strong> ${fmt(data.sm_width, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>Height:</strong> ${fmt(data.sm_height, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>Perimeter:</strong> ${fmt(data.sm_perimeter, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>Rind Thick.:</strong> ${fmt(data.sm_rind_thick, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>Width:</strong> ${fmt(data.sm_width, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>Height:</strong> ${fmt(data.sm_height, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>Perimeter:</strong> ${fmt(data.sm_perimeter, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>Rind Thick.:</strong> ${fmt(data.sm_rind_thick, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Ratio:</strong> ${fmt(data.sm_rind_ratio, 3)}</p>
-                        <p><strong>Total Area:</strong> ${fmt(data.sm_total_area, dig)} ${escapeHtml(aUnit)}</p>
-                        <p><strong>Flesh Area:</strong> ${fmt(data.sm_flesh_area, dig)} ${escapeHtml(aUnit)}</p>
+                        <p><strong>Total Area:</strong> ${fmt(data.sm_total_area, digits)} ${escapeHtml(aUnit)}</p>
+                        <p><strong>Flesh Area:</strong> ${fmt(data.sm_flesh_area, digits)} ${escapeHtml(aUnit)}</p>
                         <p><strong>Flesh/Total:</strong> ${fmt(data.sm_flesh_ratio, 3)}</p>
                         <p><strong>Elongation:</strong> ${fmt(data.sm_elongation, 3)}</p>
                         <p><strong>Asymmetry:</strong> ${fmt(data.sm_asym, 3)}</p>
