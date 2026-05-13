@@ -180,9 +180,9 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                         <p><strong>Width:</strong> ${fmt(data.raw_width, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Height:</strong> ${fmt(data.raw_height, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Perimeter:</strong> ${fmt(data.raw_perimeter, digits)} ${escapeHtml(unit)}</p>
-                        <p><strong>F.Width:</strong> ${fmt(data.raw_flesh_width, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>F.Height:</strong> ${fmt(data.raw_flesh_height, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>F.Perim:</strong> ${fmt(data.raw_flesh_perimeter, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Width:</strong> ${fmt(data.raw_flesh_width, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Height:</strong> ${fmt(data.raw_flesh_height, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Perim:</strong> ${fmt(data.raw_flesh_perimeter, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Thick.:</strong> ${fmt(data.raw_rind_thick, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Ratio:</strong> ${fmt(data.raw_rind_ratio, 3)}</p>
                         <p><strong>Total Area:</strong> ${fmt(data.raw_total_area, digits)} ${escapeHtml(aUnit)}</p>
@@ -202,9 +202,9 @@ document.getElementById("single-form").addEventListener("submit", async (e) => {
                         <p><strong>Width:</strong> ${fmt(data.sm_width, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Height:</strong> ${fmt(data.sm_height, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Perimeter:</strong> ${fmt(data.sm_perimeter, digits)} ${escapeHtml(unit)}</p>
-                        <p><strong>F.Width:</strong> ${fmt(data.sm_flesh_width, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>F.Height:</strong> ${fmt(data.sm_flesh_height, dig)} ${escapeHtml(unit)}</p>
-                        <p><strong>F.Perim:</strong> ${fmt(data.sm_flesh_perimeter, dig)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Width:</strong> ${fmt(data.sm_flesh_width, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Height:</strong> ${fmt(data.sm_flesh_height, digits)} ${escapeHtml(unit)}</p>
+                        <p><strong>F.Perim:</strong> ${fmt(data.sm_flesh_perimeter, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Thick.:</strong> ${fmt(data.sm_rind_thick, digits)} ${escapeHtml(unit)}</p>
                         <p><strong>Rind Ratio:</strong> ${fmt(data.sm_rind_ratio, 3)}</p>
                         <p><strong>Total Area:</strong> ${fmt(data.sm_total_area, digits)} ${escapeHtml(aUnit)}</p>
@@ -300,7 +300,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
             if (data.success) {
                 successCount++;
                 const isCm = measurementUnit(data) === "cm";
-                const digits = isCm === "cm" ? 2 : 0;
+                const digits = isCm ? 2 : 0;
                 const notes = rowNotes(data);
 
                 // Enforce N/A for physical dimensions if ColorChecker failed
@@ -431,14 +431,14 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                 }
             } else {
                 failureCount++;
-                tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="16" style="color:red;">Error: ${escapeHtml(data.message)}</td>`;
+                tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="38" style="color:red;">Error: ${escapeHtml(data.message)}</td>`;
             }
             tbody.appendChild(tr);
         } catch (err) {
             failureCount++;
             const tr = document.createElement("tr");
             const message = err.message === BULK_TIMEOUT_MESSAGE ? BULK_TIMEOUT_MESSAGE : `Network/API Error: ${err.message}`;
-            tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="16" style="color:red;">${escapeHtml(message)}</td>`;
+            tr.innerHTML = `<td>${escapeHtml(files[i].name)}</td><td colspan="38" style="color:red;">${escapeHtml(message)}</td>`;
             tbody.appendChild(tr);
         }
 
