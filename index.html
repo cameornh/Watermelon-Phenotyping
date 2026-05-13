@@ -63,10 +63,6 @@
       <h2>Single Image Analysis</h2>
       <form id="single-form">
         <input type="file" id="single-file" accept=".jpg,.jpeg,.png" required>
-        <label class="inline-option">
-          <input type="checkbox" id="single-smoothing" checked>
-          Smoothing
-        </label>
         <button type="submit">Process Single</button>
       </form>
       <div id="single-status" class="status"></div>
@@ -81,10 +77,6 @@
           <input type="checkbox" id="bulk-previews">
           Include previews
         </label>
-        <label class="inline-option">
-          <input type="checkbox" id="bulk-smoothing" checked>
-          Smoothing
-        </label>
         <button type="submit">Process Batch</button>
       </form>
       <div id="bulk-status" class="status"></div>
@@ -96,24 +88,38 @@
           <thead>
             <tr>
               <th>Filename</th>
-              <th>R²</th>
-              <th>Width (cm)</th>
-              <th>Height (cm)</th>
-              <th>Perim (cm)</th>
-              <th>Rind Thick.</th>
-              <th>Rind Ratio</th>
-              <th>Total Area (cm²)</th>
-              <th>Flesh Area (cm²)</th>
-              <th>Flesh Ratio</th>
-              <th>FSI (Elong.)</th>
-              <th>Asym.</th>
-              <th>Flesh Asym.</th>
+              <th>R² Rind</th>
+              <th>R² Flesh</th>
+              <th>Width (Raw)</th>
+              <th>Width (Sm)</th>
+              <th>Height (Raw)</th>
+              <th>Height (Sm)</th>
+              <th>Perim (Raw)</th>
+              <th>Perim (Sm)</th>
+              <th>Rind Thick (Raw)</th>
+              <th>Rind Thick (Sm)</th>
+              <th>Rind Ratio (Raw)</th>
+              <th>Rind Ratio (Sm)</th>
+              <th>Tot Area (Raw)</th>
+              <th>Tot Area (Sm)</th>
+              <th>Flesh Area (Raw)</th>
+              <th>Flesh Area (Sm)</th>
+              <th>Flesh Rat (Raw)</th>
+              <th>Flesh Rat (Sm)</th>
+              <th>Elong (Raw)</th>
+              <th>Elong (Sm)</th>
+              <th>Asym (Raw)</th>
+              <th>Asym (Sm)</th>
+              <th>F.Asym (Raw)</th>
+              <th>F.Asym (Sm)</th>
+              <th>Circ (Raw)</th>
+              <th>Circ (Sm)</th>
               <th>Midline Curve</th>
-              <th>Circularity</th>
               <th>Init ΔE</th>
               <th>Final ΔE</th>
               <th>Time (ms)</th>
-              <th>Preview</th>
+              <th>Preview (Raw)</th>
+              <th>Preview (Smooth)</th>
             </tr>
           </thead>
           <tbody></tbody>
