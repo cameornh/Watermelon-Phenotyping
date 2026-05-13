@@ -304,7 +304,7 @@ document.getElementById("bulk-form").addEventListener("submit", async (e) => {
                     <td>${fmt(w, 1)}</td>
                     <td>${fmt(h, 1)}</td>
                     <td>${fmt(p, 1)}</td>
-                    <td>${fmt(rt, digits)}</td>
+                    <td>${fmt(rt, 1)}</td>
                     <td>${fmt(data.rind_thickness_ratio, 3)}</td>
                     <td>${fmt(ta, 1)}</td>
                     <td>${fmt(fa, 1)}</td>
