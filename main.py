@@ -18,6 +18,7 @@ torch.set_num_threads(1)
 
 # Import your helpers (assuming cv_helpers.py is in the same folder)
 from cv_helpers import blend_mask_overlays, stem_tip_tangent_deg
+from whiteboard_ocr import read_whiteboard_handwriting
 
 # --- CONFIGURATION ---
 MODEL_PATH = "best.pt"
@@ -34,6 +35,9 @@ class ProcessResult:
     perimeter_val: Optional[float] = None
     image_base64: Optional[str] = None
     filename: Optional[str] = None
+    whiteboard_detected: bool = False
+    whiteboard_number: Optional[str] = None
+    whiteboard_ocr_confidence: Optional[float] = None
 
 class WatermelonProcessor:
     def __init__(self, model_path: str):
@@ -223,6 +227,15 @@ async def process_single(file: UploadFile = File(...)):
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if img is None:
+        return ProcessResult(
+            success=False,
+            message="Could not decode image.",
+            filename=file.filename,
+        ).__dict__
+
+    wb = read_whiteboard_handwriting(img)
     
     # OOM PREVENTION 3: Resize image if it's massive
     h, w = img.shape[:2]
@@ -232,6 +245,9 @@ async def process_single(file: UploadFile = File(...)):
         img = cv2.resize(img, (int(w * scale_ratio), int(h * scale_ratio)), interpolation=cv2.INTER_AREA)
 
     res = processor.process_image(img, file.filename, scale_ratio)
+    res.whiteboard_detected = wb.found_board
+    res.whiteboard_number = wb.text
+    res.whiteboard_ocr_confidence = wb.confidence
     
     # OOM PREVENTION 4: Force garbage collection immediately after processing
     del img, nparr, contents

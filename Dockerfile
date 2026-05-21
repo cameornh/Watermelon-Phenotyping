@@ -7,6 +7,12 @@ WORKDIR /app
 # Copy your requirements
 COPY requirements.txt .
 
+# Minimal libs for OpenCV / EasyOCR runtime on slim images
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies (CPU-only PyTorch to save space)
 RUN pip install --no-cache-dir -r requirements.txt
 
